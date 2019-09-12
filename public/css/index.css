@@ -1,0 +1,103 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font: 13px Helvetica, Arial;
+}
+
+#chat-app {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    display: grid;
+    grid-template-areas: "ci uc";
+    grid-template-columns: calc(100% - 250px) 250px;
+    /* grid-column-gap: 15px; */
+    width: 100%;
+}
+
+#chat-items {
+    grid-area: ci;
+    /* display: grid;
+    grid-template-columns: repeat(auto-fill, 250px);
+    grid-column-gap: 15px; */
+}
+
+#users-container {
+    grid-area: uc;
+}
+
+.chat-item {
+    border: 1px solid black;
+    height: 450px;
+}
+
+#chat-items .chat-item {
+    width: 250px;
+    float: right;
+    list-style-type: none;
+    margin-left: 15px;
+}
+
+#chat-items .chat-item:last-child {
+    margin-left: 0;
+}
+#chat-items .chat-item:first-child {
+    margin-right: 15px;
+}
+
+.data-container {
+    height: 100%;
+}
+
+.chat-title {
+    background-color: blue;
+    padding: 10px;
+    color: #f5f5f5;
+}
+
+.chat-item form {
+    position: absolute;
+    bottom: 0;
+    width: 249px;
+}
+
+.chat-item #message-input {
+    padding: 10px;
+    width: 205px;
+}
+
+.message-send-btn {
+    background-color: blue;
+    border: none;
+    height: 40px;
+    width: 40px;
+    line-height: 40px;
+}
+
+.message-send-btn i {
+    font-size: 24px;
+    color: #efefef;
+    bottom: -5.15px;
+    position: relative;
+}
+
+#messages,
+#users-list {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+#messages li,
+#users-list li {
+    padding: 5px 10px;
+}
+
+#messages li:nth-child(odd),
+#users-list li:nth-child(odd) {
+    background: #eee;
+}

@@ -1,0 +1,152 @@
+
+.chat-content.card-content {
+    max-height: 74vh;
+    overflow-y: scroll;
+}
+
+.chat-wrapper .chat-message {
+    position: relative;
+    float: left;
+    clear: both;
+    margin: 2px 50px 20px;
+    padding: 8px;
+    border-radius: 8px;
+    line-height: 22px;
+    background-color: #ddd;
+}
+
+.chat-wrapper .chat-message.right {
+    background-color: #448AFF;
+    color: #fff;
+}
+
+.chat-wrapper .chat-message.coalesce {
+    margin-top: -16px;
+}
+
+.chat-wrapper .chat-message .circle {
+    position: absolute;
+    top: -2px;
+    left: -50px;
+    height: 42px;
+    width: 42px;
+}
+
+.chat-wrapper .chat-message.right .circle {
+    left: auto;
+    right: -50px;
+}
+
+.chat-input {
+    border-top: 1px solid #e0e0e0;
+}
+
+.chat-input .chat-input-bar {
+    display: flex;
+}
+
+.chat-input form {
+    margin-bottom: 0;
+}
+
+.chat-input form input[type="text"], .chat-input textarea {
+    border: 0;
+    margin: 0;
+    padding: 24px;
+    line-height: 24px;
+}
+
+.chat-input button[type="submit"] {
+    padding: 0 16px;
+    height: 72px;
+    cursor: pointer;
+}
+
+.chat-input button[type="submit"] i.material-icons {
+    color: #448AFF;
+}
+
+button {
+    background: none;
+    border: 0;
+}
+
+.row.equal-height-grid .col {
+    display: flex;
+    margin-left: 0;
+}
+
+.row.equal-height-grid .col .card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.card {
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+.collection.flush {
+    margin: 0;
+    border: 0;
+    border-top: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+p {
+    font-weight: 300;
+    font-size: 18px;
+    color: #888;
+}
+
+.collection .collection-item.avatar.active {
+    color: inherit;
+    background-color: #eee;
+}
+
+.collection .collection-item.avatar {
+    min-height: initial;
+}
+
+.collection .collection-item.avatar {
+    min-height: 84px;
+    padding-left: 72px;
+    position: relative;
+}
+
+.collection .collection-item {
+    background-color: #fff;
+    line-height: 1.5rem;
+    padding: 10px 20px;
+    margin: 0;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.collection-item.avatar :not(.circle-clipper)>.circle {
+    position: absolute;
+    width: 42px;
+    height: 42px;
+    overflow: hidden;
+    left: 15px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.badged-circle.online::before {
+    background-color: #66BB6A;
+}
+
+.badged-circle::before {
+    display: block;
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 42px;
+    height: 12px;
+    width: 12px;
+    background-color: #ddd;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    z-index: 1;
+}

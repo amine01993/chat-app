@@ -1,0 +1,65 @@
+<% layout('layout') -%>
+
+<% block('title', 'Login') %>
+
+<style>
+    .vertical-container {
+        height: 100vh;
+        position: relative;
+    }
+
+    .vertical-container .vertical-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translateY(-50%) translateX(-50%);
+    }
+
+    .login-page .row {
+        margin-top: 0;
+        margin-bottom: 0;
+    }
+
+    .login-page .input-field .helper-text::after {
+        right: 0;
+    }
+</style>
+
+<div class="container vertical-container login-page">
+    <div class="card-panel lighten-2 vertical-content">
+        <div class="row">
+            <form class="col s12" method="post">
+
+                <div class="row">
+                    <div class="input-field col s12">
+                        <input id="username" type="text" class="<%= typeof msg == 'string' ? 'invalid' : 'validate' %>" name="username">
+                        <label for="username">Username</label>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="input-field col s12">
+                        <input id="password" type="password" class="<%= typeof msg == 'string' ? 'invalid' : 'validate' %>" name="password">
+                        <label for="password">Password</label>
+                        <span class="helper-text center" data-error="<%= typeof msg == 'string' ? msg : '' %>" data-success=""></span>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col s12 right-align">
+                        <button class="waves-effect waves-light btn" type="submit">Sign In</button>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+        
+        <div class="row">
+            <div class="col s12 center-align">
+                <p>Not registered? <a href="/register">Create an account</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+
