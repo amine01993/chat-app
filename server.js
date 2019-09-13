@@ -45,7 +45,10 @@ app.set('views', path.join(__dirname, '/views'))
 app.engine('ejs', engine);
 app.set('view engine', 'ejs');
 
-app.use(bodyParser.json()) // to support JSON-encoded bodies
+app.use(bodyParser.json({
+    limit: '5mb',
+    extended: true
+})) // to support JSON-encoded bodies
 app.use(bodyParser.urlencoded({ // to support URL-encoded bodies
     extended: true
 }))
@@ -231,12 +234,13 @@ app.post('/profileImage', async (req, res) => {
     const imageBase64Data = image.replace(new RegExp(`^data:${type};base64,`), '');
 
     const imageNamePrefix = uuidv4()
-    const imageName = `${imageNamePrefix}${path.extname(name)}`
+    const imageName = `${imageNamePrefix}.webp`
     const imageUrl = `img/${imageName}`
-    fs.writeFileSync(`public/${imageUrl}`, imageBase64Data, 'base64')
+    // fs.writeFileSync(`public/${imageUrl}`, imageBase64Data, 'base64')
+    const info = await sharp(new Buffer(imageBase64Data, 'base64')).webp({ lossless: true }).toFile(`public/${imageUrl}`)
     // create chat img 100x100
-    const chatImageName = `${imageNamePrefix}-chat${path.extname(name)}`
-    const info = await sharp(`public/${imageUrl}`).resize(100).toFile(`public/img/${chatImageName}`) // resize & save
+    const chatImageName = `${imageNamePrefix}-chat.webp`
+    const infoChat = await sharp(`public/${imageUrl}`).resize(100).webp({ lossless: true }).toFile(`public/img/${chatImageName}`) // resize & save
 
     await db('users').update({profilePicture: imageName, chatPicture: chatImageName}).where({id: req.user.id})
     // delete old picture if it exists
