@@ -240,7 +240,7 @@ app.post('/profileImage', async (req, res) => {
     const info = await sharp(new Buffer(imageBase64Data, 'base64')).webp({ lossless: true }).toFile(`public/${imageUrl}`)
     // create chat img 100x100
     const chatImageName = `${imageNamePrefix}-chat.webp`
-    const infoChat = await sharp(`public/${imageUrl}`).resize(100).webp({ lossless: true }).toFile(`public/img/${chatImageName}`) // resize & save
+    const infoChat = await sharp(`public/${imageUrl}`).resize(100).toFile(`public/img/${chatImageName}`) // resize & save
 
     await db('users').update({profilePicture: imageName, chatPicture: chatImageName}).where({id: req.user.id})
     // delete old picture if it exists
