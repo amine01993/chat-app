@@ -44,12 +44,13 @@
             } = data.channels[index]
 
             const channelItem = parser.parseFromString(channelItemTemplate, 'text/html').body.firstChild
-            const otherUsers = `${users.filter(u => users.length == 1 || u.user_id != data.current_user_id).map(u => u.username).join(', ')}`
-            channelItem.querySelector('.title').innerText = otherUsers
+            const otherUsers = users.filter(u => users.length == 1 || u.user_id != data.current_user_id)
+            const otherUsernames = `${otherUsers.map(u => u.username).join(', ')}`
+            channelItem.querySelector('.title').innerText = otherUsernames
             if(connectionStatus) {
                 channelItem.querySelector('.badged-circle').classList.add('online')
             }
-            const chatPicture = users[0].chatPicture, gender = users[0].sex
+            const chatPicture = otherUsers[0].chatPicture, gender = otherUsers[0].sex
             channelItem.querySelector('img.circle').src = getChatPicture(chatPicture, gender)
             channelItem.setAttribute('data-channel_uuid', channel_uuid ? channel_uuid : '')
 
@@ -78,6 +79,7 @@
         console.log('chat', data)
 
         chatWith.innerHTML = `Chat with ${data.users.filter(u => data.users.length == 1 || u.user_id != data.current_user_id).map(u => u.username).join(', ')}`
+        chatHistoryList.innerHTML = ''
 
         msgForm.addEventListener('submit', (event) => {
             event.preventDefault()
