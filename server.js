@@ -25,6 +25,7 @@ const bcrypt = require('bcrypt')
 const saltRounds = 10
 const sleep = require('./helpers/sleep')
 const random = require('./helpers/random')
+const auth = require('./helpers/auth')
 
 let db = knex({
     client: 'pg',
@@ -109,13 +110,8 @@ passport.deserializeUser(async ({
 app.use(passport.initialize())
 app.use(passport.session())
 
-app.get('/', (req, res) => {
-
-    if (req.isAuthenticated()) {
-        res.render('chat', {user: req.user})
-    } else {
-        res.redirect('/login')
-    }
+app.get('/', auth.isAuthorized, (req, res) => {
+    res.render('chat', {user: req.user})
 })
 
 // create the login get and post routes
@@ -219,17 +215,17 @@ app.post('/register', [
     // return res.redirect('/login')
 })
 
-app.get('/profile', (req, res) => {
+app.get('/profile', auth.isAuthorized, (req, res) => {
     res.render('profile', { user: req.user });
 })
 
-app.post('/profileName', async (req, res) => {
+app.post('/profileName', auth.isAuthorized, async (req, res) => {
     const {firstName, lastName} = req.body
     await db('users').update({firstName, lastName}).where({id: req.user.id})
     res.json({firstName, lastName, success: true})
 })
 
-app.post('/profileImage', async (req, res) => {
+app.post('/profileImage', auth.isAuthorized, async (req, res) => {
     const {image, name, type} = req.body
     const imageBase64Data = image.replace(new RegExp(`^data:${type};base64,`), '');
 
