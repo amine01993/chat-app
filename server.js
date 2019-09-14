@@ -93,17 +93,12 @@ passport.use(new LocalStrategy({},
 passport.serializeUser((user, done) => {
     done(null, {
         id: user.id,
-        username: user.username
     })
 })
 passport.deserializeUser(async ({
-    id,
-    username
+    id
 }, done) => {
-    const user = await db.select('*').from('users')
-        .where('id', '=', id)
-        .first()
-
+    const user = await db.select('*').from('users').where('id', '=', id).first()
     done(null, user)
 })
 
@@ -252,91 +247,87 @@ app.post('/profileImage', auth.isAuthorized, async (req, res) => {
 io.on('connection', async (socket) => {
     sockets.push(socket)
     socket.user_id = socket.handshake.session.passport.user.id
-    socket.username = socket.handshake.session.passport.user.username
+    
     const currentUser = await db.select('id AS user_id', 'username', 'chatPicture', 'sex')
         .from('users').where('id', '=', socket.user_id).first()
     const channels = await getChannels(currentUser)
-    // console.log(util.inspect(channels))
+
     socket.emit('channels', channels)
 
-    // if(process.env.NODE_ENV == 'dev') {
-    //     console.log(util.inspect(socket))
-    // }
     console.log('a user connected, ' + socket.user_id + ', users: ' + util.inspect(sockets.map(s => s.user_id)))
 
     socket.on('handleMessage', async (data) => {
         console.log('handleMessage', util.inspect(data))
 
         // insert message
-        const messageId = await db('messages').insert({
+        const message = await db('messages').insert({
             body: data.value,
             sender_id: socket.handshake.session.passport.user.id,
             channel_uuid: data.channel_uuid
-        }).returning('id')
+        }).returning(['id','created_at'])
         // insert metadatas
-        data.userIds.forEach(async user_id => {
+        const users = await db.select('user_id').from('channel_user').where('channel_uuid', '=', data.channel_uuid)
+        users.forEach(async ({user_id}) => {
             await db('message_metadatas').insert({
-                message_id: messageId[0],
+                message_id: message[0].id,
                 participant_id: user_id
             })
         })
 
-        const currentUser = await db.select('id', 'username', 'chatPicture', 'sex')
+        const currentUser = await db.select('username', 'chatPicture', 'sex')
             .from('users').where('id', '=', socket.user_id).first()
 
         io.in(data.channel_uuid).emit('messageListener', {
-            msg: data.value,
-            chat_id: data.channel_uuid,
-            user: currentUser
+            msg: {
+                msg: data.value,
+                user_id: socket.user_id,
+                username: currentUser.username,
+                chatPicture: currentUser.chatPicture,
+                sex: currentUser.sex,
+                created_at: message[0].created_at
+            },
         });
     })
 
     socket.on('chat', async (data) => {
-        console.log('chat', socket.handshake.session.passport.user.username, util.inspect(data))
-        // if (!req.isAuthenticated()) {
-        //     return res.status(403).json({
-        //         error: true,
-        //         message: 'Not authenticated'
-        //     })
-        // }
+        console.log('chat', socket.handshake.session.passport.user.id, util.inspect(data))
 
-        let channelExist = false,
-            channel_uuid, messages = [],
-            users = null,
-            channelUsers = null
+        const uuid = await db.select('uuid').from('channels').where('uuid', '=', data.channel_uuid).first()
+        
+        let channelExist = uuid != null, channel_uuid, messages = [], users
 
-        if (data.channel_uuid) {
-
-            channelUsers = await db.select(
-                    'cu.channel_uuid',
-                    db.raw('json_agg(json_build_object(\'user_id\', cu.user_id, \'username\', u.username)) users')
-                )
+        if (channelExist) {
+            channel_uuid = data.channel_uuid
+            users = await db.select('u.id AS user_id', 'u.username')
                 .from('channel_user AS cu')
-                .where('cu.channel_uuid', '=', data.channel_uuid)
                 .innerJoin('users AS u', 'u.id', 'cu.user_id')
-                .groupBy('cu.channel_uuid').first()
+                .where('cu.channel_uuid', '=', channel_uuid)
         } else {
             // when a channel is created but the other users don't have an updated data in the client side
-            channelUsers = await db.select(
-                    'cu.channel_uuid',
-                    db.raw('json_agg(json_build_object(\'user_id\', cu.user_id, \'username\', u.username)) users')
-                )
-                .from('channel_user AS cu')
-                .innerJoin('users AS u', 'u.id', 'cu.user_id')
-                .groupBy('cu.channel_uuid')
-                .havingRaw(data.userIds.map(id => `${id} = ANY(array_agg(cu.user_id))`).join(' AND ')).first()
+            if(data.userIds.length == 2) {
+                const channelUsers = await db.select(
+                        'cu.channel_uuid',
+                        db.raw('json_agg(json_build_object(\'user_id\', cu.user_id, \'username\', u.username)) users')
+                    )
+                    .from('channel_user AS cu')
+                    .innerJoin('users AS u', 'u.id', 'cu.user_id')
+                    .groupBy('cu.channel_uuid')
+                    .havingRaw([...data.userIds.map(id => `${id} = ANY(array_agg(cu.user_id))`), 'COUNT(cu.user_id) = 2'].join(' AND ')).first()
+                
+                if(channelUsers && channelUsers.users.length == 2) {
+                    channelExist = true
+                    channel_uuid = data.channel_uuid
+                    users = channelUsers.users
+                }
+            }
         }
 
-        if (channelUsers) {
-            channelExist = true
-            channel_uuid = channelUsers.channel_uuid
-            users = channelUsers.users
-            // get messages
+        if (channelExist) {
             messages = await db.select('m.body AS msg', 'u.id AS user_id', 'u.username', 'u.chatPicture', 'u.sex', 'm.created_at')
                 .from('messages AS m')
                 .innerJoin('users AS u', 'u.id', 'm.sender_id')
                 .leftJoin('message_metadatas AS mm', 'mm.message_id', 'm.id')
-                .where('m.channel_uuid', '=', channel_uuid)
+                .where('m.channel_uuid', '=', data.channel_uuid)
                 .andWhere('mm.participant_id', '=', socket.handshake.session.passport.user.id)
                 .orderBy('m.created_at')
         }
@@ -358,13 +349,15 @@ io.on('connection', async (socket) => {
                 })
             })
 
-            // get users
-            users = await db.select('id', 'username').from('users').whereIn('id', data.userIds)
+            users = await db.select('u.id AS user_id', 'u.username')
+            .from('channel_user AS cu')
+            .innerJoin('users AS u', 'u.id', 'cu.user_id')
+            .where('cu.channel_uuid', '=', channel_uuid)
         }
 
         socket.join(channel_uuid)
 
-        console.log('From: ' + socket.username + ', Users joined chat room ' + channel_uuid + ': ');
+        console.log('From: ' + socket.user_id + ', Users joined chat room ' + channel_uuid + ': ');
         io.in(channel_uuid).clients((err, clients) => {
             // clients will be array of socket ids , currently available in given room
             console.log(util.inspect(clients))
@@ -374,8 +367,7 @@ io.on('connection', async (socket) => {
             channel_uuid,
             messages,
             users,
-            current_user_id: socket.user_id
-            // a_element_id: data.a_element_id
+            channel_item_id: channelExist ? null : data.channel_uuid
         })
     })
 
@@ -429,7 +421,7 @@ async function getChannels(current_user) {
             const index = definedChannels.findIndex(dc => dc.user_ids.length == 1)
             if (index == -1) {
                 channels.push({
-                    channel_uuid: null,
+                    channel_uuid: `id_${uuidv4()}`,
                     users: [{
                         user_id: user.id,
                         username: user.username,
@@ -442,7 +434,7 @@ async function getChannels(current_user) {
             const index = definedChannels.findIndex(dc => dc.user_ids.length == 2 && dc.user_ids.includes(user.id))
             if (index == -1) {
                 channels.push({
-                    channel_uuid: null,
+                    channel_uuid: `id_${uuidv4()}`,
                     users: [{
                         user_id: user.id,
                         username: user.username,
@@ -475,5 +467,5 @@ async function getChannels(current_user) {
         })
     })
 
-    return {channels, current_user_id: current_user.user_id}
+    return channels
 }
