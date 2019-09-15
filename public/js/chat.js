@@ -25,6 +25,9 @@
             Raw denim
         </span>
     </div>`
+    
+    const chatDateTemplate = `<div class="chat-date">
+    </div>`
 
     function getChatPicture(chatPicture, gender) {
         return chatPicture != null && chatPicture != '' 
@@ -73,7 +76,7 @@
         }
     })
 
-    let prev_user_id = null
+    let prev_user_id = null, prev_day = null
     socket.on('chat', data => {
         console.log('chat', data)
 
@@ -89,11 +92,32 @@
         selected_channel_uuid = data.channel_uuid
 
         for (let mi = 0; mi < data.messages.length; mi++) {
-            const {user_id, username, msg, chatPicture, sex} = data.messages[mi]
-            let message = parser.parseFromString(messageTemplate, 'text/html').body.firstChild
+            const {user_id, msg, chatPicture, sex, created_at} = data.messages[mi]
+            const dateMoment = moment(new Date(created_at))
+            if(prev_day == null || prev_day != dateMoment.format('DDMMYYYY')) {
+                prev_day = dateMoment.format('DDMMYYYY')
+                const dayDate = parser.parseFromString(chatDateTemplate, 'text/html').body.firstChild
+                dayDate.innerHTML = dateMoment.format('DD/MM/YYYY HH:mm')
+                chatHistoryList.appendChild(dayDate)
+            }
+
+            const message = parser.parseFromString(messageTemplate, 'text/html').body.firstChild
+            
+            const textMessage = message.querySelector('.message')
+            textMessage.innerText = msg
+            textMessage.classList.add('tooltipped')
+            textMessage.setAttribute('data-tooltip', moment(new Date(created_at)).format('MMM D, YYYY [at] HH:mm'))
+
             if(user_id == connectedUserId) {
                 message.classList.add('right')
+                textMessage.setAttribute('data-position', 'left')
             }
+            else {
+                textMessage.setAttribute('data-position', 'right')
+            }
+
+            M.Tooltip.init(textMessage, {})
+
             if(user_id == prev_user_id) {
                 message.classList.add('coalesce')
                 message.removeChild(message.querySelector('img.circle'))
@@ -102,7 +126,6 @@
                 message.querySelector('img.circle').src = getChatPicture(chatPicture, sex)
             }
             prev_user_id = user_id
-            message.querySelector('.message').innerText = msg
             
             chatHistoryList.appendChild(message)
         }
@@ -113,7 +136,7 @@
         event.preventDefault()
         console.log('socket client emit on ', selected_channel_uuid, msgInput.value)
 
-        if(selected_channel_uuid) {
+        if(selected_channel_uuid && msgInput.value.trim() != '') {
             socket.emit('handleMessage', {
                 channel_uuid: selected_channel_uuid,
                 value: msgInput.value,
@@ -125,11 +148,31 @@
     socket.on('messageListener', data => {
         console.log(data)
 
-        const {user_id, username, msg, chatPicture, sex} = data.msg
-        let message = parser.parseFromString(messageTemplate, 'text/html').body.firstChild
+        const {user_id, msg, chatPicture, sex, created_at} = data.msg
+        const dateMoment = moment(new Date(created_at))
+        if(prev_day == null || prev_day != dateMoment.format('DDMMYYYY')) {
+            prev_day = dateMoment.format('DDMMYYYY')
+            const dayDate = parser.parseFromString(chatDateTemplate, 'text/html').body.firstChild
+            dayDate.innerHTML = dateMoment.format('DD/MM/YYYY HH:mm')
+            chatHistoryList.appendChild(dayDate)
+        }
+
+        const message = parser.parseFromString(messageTemplate, 'text/html').body.firstChild
+        const textMessage = message.querySelector('.message')
+        textMessage.innerText = msg
+        textMessage.classList.add('tooltipped')
+        textMessage.setAttribute('data-tooltip', moment(new Date(created_at)).format('MMM D, YYYY [at] HH:mm'))
+
         if(user_id == connectedUserId) {
             message.classList.add('right')
+            textMessage.setAttribute('data-position', 'left')
         }
+        else {
+            textMessage.setAttribute('data-position', 'right')
+        }
+
+        M.Tooltip.init(textMessage, {})
+
         if(user_id == prev_user_id) {
             message.classList.add('coalesce')
             message.removeChild(message.querySelector('img.circle'))

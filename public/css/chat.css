@@ -15,6 +15,18 @@
     background-color: #ddd;
 }
 
+.chat-wrapper .chat-date {
+    position: relative;
+    clear: both;
+    margin: 2px 0 20px;
+    width: 100%;
+    text-align: center;
+    font-size: 12px;
+    color: rgba(0, 0, 0, .40);
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
 .chat-wrapper .chat-message.right {
     background-color: #448AFF;
     color: #fff;

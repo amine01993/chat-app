@@ -274,14 +274,13 @@ io.on('connection', async (socket) => {
             })
         })
 
-        const currentUser = await db.select('username', 'chatPicture', 'sex')
+        const currentUser = await db.select('chatPicture', 'sex')
             .from('users').where('id', '=', socket.user_id).first()
 
         io.in(data.channel_uuid).emit('messageListener', {
             msg: {
                 msg: data.value,
                 user_id: socket.user_id,
-                username: currentUser.username,
                 chatPicture: currentUser.chatPicture,
                 sex: currentUser.sex,
                 created_at: message[0].created_at
@@ -323,7 +322,7 @@ io.on('connection', async (socket) => {
         }
 
         if (channelExist) {
-            messages = await db.select('m.body AS msg', 'u.id AS user_id', 'u.username', 'u.chatPicture', 'u.sex', 'm.created_at')
+            messages = await db.select('m.body AS msg', 'u.id AS user_id', 'u.chatPicture', 'u.sex', 'm.created_at')
                 .from('messages AS m')
                 .innerJoin('users AS u', 'u.id', 'm.sender_id')
                 .leftJoin('message_metadatas AS mm', 'mm.message_id', 'm.id')
