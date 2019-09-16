@@ -1,7 +1,27 @@
+.flex-container {
+    display: flex;
+    height: 100vh;
+}
+
+.flex-container>.flex-item {
+    height: 100%;
+}
+
+.flex-container>.flex-item:first-child {
+    flex-grow: 12;
+}
+
+.flex-container>.flex-item:last-child {
+    flex-basis: 320px;
+}
 
 .chat-content.card-content {
-    max-height: 74vh;
+    height: calc(100% - 84px - 78px);
     overflow-y: scroll;
+}
+
+.chat-app .card .card-content:not(.chat-content) {
+    height: 88px;
 }
 
 .chat-wrapper .chat-message {
@@ -61,7 +81,8 @@
     margin-bottom: 0;
 }
 
-.chat-input form input[type="text"], .chat-input textarea {
+.chat-input form input[type="text"],
+.chat-input textarea {
     border: 0;
     margin: 0;
     padding: 24px;
@@ -96,7 +117,8 @@ button {
 
 .card {
     margin-top: 0;
-    margin-bottom: 20px;
+    margin-bottom: 0;
+    height: 100%;
 }
 
 .collection.flush {
