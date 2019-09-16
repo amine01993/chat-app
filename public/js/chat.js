@@ -90,7 +90,8 @@
         }
 
         selected_channel_uuid = data.channel_uuid
-
+        
+        prev_day = null
         for (let mi = 0; mi < data.messages.length; mi++) {
             const {user_id, msg, chatPicture, sex, created_at} = data.messages[mi]
             const dateMoment = moment(new Date(created_at))
