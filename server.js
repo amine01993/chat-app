@@ -387,25 +387,39 @@ http.listen(3000, () => {
 
 async function getChannels(current_user) {
 
-    const definedChannels = await db.select(
-            'cu.channel_uuid',
-            db.raw('json_agg(json_build_object(\'user_id\', cu.user_id, \'username\', u.username, \'chatPicture\', u."chatPicture", \'sex\', u.sex)) users'),
-            db.raw('array_agg(user_id) user_ids')
-        )
-        .from('channel_user AS cu')
-        .innerJoin('users AS u', 'u.id', 'cu.user_id')
-        .groupBy('channel_uuid')
-        .havingRaw(`${current_user.user_id} = ANY(array_agg(user_id))`)
+    const definedChannels = await db.raw(
+        `SELECT ch_u.channel_uuid, ch_m.body, ch_m.sender_id, ch_m.created_at, ch_u.users
+        FROM (
+            SELECT cu.channel_uuid,
+                json_agg(json_build_object('user_id', cu.user_id, 'username', u.username, 'chatPicture', u."chatPicture", 'sex', u.sex)) users
+            FROM channel_user AS cu
+            INNER JOIN users AS u ON u.id = cu.user_id
+            GROUP BY cu.channel_uuid
+            HAVING ${current_user.user_id} = ANY(array_agg(cu.user_id))
+        ) AS ch_u
+        LEFT JOIN (
+            SELECT m1.channel_uuid, m1.body, m1.sender_id, m1.created_at
+            FROM messages m1
+            INNER JOIN (
+                SELECT channel_uuid, MAX(created_at) AS created_at
+                FROM messages
+                GROUP BY channel_uuid
+            ) m2 ON m1.channel_uuid = m2.channel_uuid AND m1.created_at = m2.created_at
+        ) ch_m ON ch_m.channel_uuid = ch_u.channel_uuid`
+    )
 
     const users = await db.select('id', 'username', 'chatPicture', 'sex').from('users')
 
     const channels = []
 
     // insert defined channels
-    for (let i = 0; i < definedChannels.length; i++) {
-        const definedChannel = definedChannels[i]
+    for (let i = 0; i < definedChannels.rows.length; i++) {
+        const definedChannel = definedChannels.rows[i]
         channels.push({
             channel_uuid: definedChannel.channel_uuid,
+            body: definedChannel.body,
+            sender_id: definedChannel.sender_id,
+            created_at: definedChannel.created_at,
             users: definedChannel.users
         })
     }
@@ -417,10 +431,13 @@ async function getChannels(current_user) {
         const user = users[i]
         // we assume `dc.user_ids.includes(current_user_id)` is always true, because of `having` clause
         if (user.id == current_user.user_id) {
-            const index = definedChannels.findIndex(dc => dc.user_ids.length == 1)
+            const index = definedChannels.rows.findIndex(dc => dc.users.length == 1)
             if (index == -1) {
                 channels.push({
                     channel_uuid: `id_${uuidv4()}`,
+                    body: null,
+                    sender_id: null,
+                    created_at: null,
                     users: [{
                         user_id: user.id,
                         username: user.username,
@@ -430,10 +447,13 @@ async function getChannels(current_user) {
                 })
             }
         } else {
-            const index = definedChannels.findIndex(dc => dc.user_ids.length == 2 && dc.user_ids.includes(user.id))
+            const index = definedChannels.rows.findIndex(dc => dc.users.length == 2 && dc.users.find(u => u.user_id == user.id))
             if (index == -1) {
                 channels.push({
                     channel_uuid: `id_${uuidv4()}`,
+                    body: null,
+                    sender_id: null,
+                    created_at: null,
                     users: [{
                         user_id: user.id,
                         username: user.username,

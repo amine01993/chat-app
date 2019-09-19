@@ -6,9 +6,11 @@
 
     const channelItemTemplate = `<li class="collection-item avatar">
         <div class="badged-circle">
-            <img class="circle" src="//cdn.shopify.com/s/files/1/1775/8583/t/1/assets/portrait1.jpg?0" alt="avatar">
+            <img class="circle" alt="avatar">
         </div>
-        <span class="title">Jane Doe</span>
+        <div class="title"></div>
+        <div class="sub-title"></div>
+        <div class="last-msg-date"></div>
     </li>`
 
     const channelsList = document.getElementById('channels-list')
@@ -42,6 +44,7 @@
         for (let index = 0; index < channels.length; index++) {
             const {
                 channel_uuid,
+                body, sender_id, created_at,
                 users,
                 connectionStatus
             } = channels[index]
@@ -50,6 +53,18 @@
             const otherUsers = users.filter(u => users.length == 1 || u.user_id != connectedUserId)
             const otherUsernames = `${otherUsers.map(u => u.username).join(', ')}`
             channelItem.querySelector('.title').innerText = otherUsernames
+            if(body) {
+                let subtitle = ''
+                if(users.length > 1 && sender_id == connectedUserId) {
+                    subtitle += 'You: '
+                }
+                else if(users.length > 2) {
+                    subtitle += users.find(u => u.user_id == sender_id).username
+                }
+                subtitle += body
+                channelItem.querySelector('.sub-title').innerText = subtitle
+                channelItem.querySelector('.last-msg-date').innerText = moment(new Date(created_at)).format('DD/MM/YYYY HH:mm')
+            }
             if(connectionStatus) {
                 channelItem.querySelector('.badged-circle').classList.add('online')
             }
