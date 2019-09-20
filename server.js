@@ -254,6 +254,11 @@ io.on('connection', async (socket) => {
 
     socket.emit('channels', channels)
 
+    socket.broadcast.emit('connectionStatusListener', {
+        user_id: socket.user_id,
+        connected: true
+    })
+
     console.log('a user connected, ' + socket.user_id + ', users: ' + util.inspect(sockets.map(s => s.user_id)))
 
     socket.on('handleMessage', async (data) => {
@@ -377,6 +382,11 @@ io.on('connection', async (socket) => {
         }
 
         console.log('user disconnected, ' + socket.user_id + ', users: ' + +util.inspect(sockets.map(s => s.user_id)))
+        
+        socket.broadcast.emit('connectionStatusListener', {
+            user_id: socket.user_id,
+            connected: false
+        })
     })
 
 })

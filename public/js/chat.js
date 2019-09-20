@@ -71,6 +71,7 @@
             const chatPicture = otherUsers[0].chatPicture, gender = otherUsers[0].sex
             channelItem.querySelector('img.circle').src = getChatPicture(chatPicture, gender)
             channelItem.setAttribute('data-channel_uuid', channel_uuid) // existing or temporary
+            channelItem.setAttribute('data-users', users.map(u => u.user_id).join('-'))
 
             channelItem.addEventListener('click', (event) => {
                 channelsList.querySelectorAll('li.collection-item').forEach(li => {
@@ -202,4 +203,25 @@
         chatHistoryList.appendChild(message)
     })
 
+    socket.on('connectionStatusListener', ({user_id, connected}) => {
+        console.log('connectionStatusListener', user_id)
+        Array.from(channelsList.querySelectorAll(`.collection-item`))
+        .filter(elem => {
+            return elem.getAttribute('data-users').split('-').includes(user_id.toString())
+        })
+        .map(elem => {
+            console.log(elem)
+            const elembc = elem.querySelector('.badged-circle')
+            if(connected) {
+                if(!elembc.classList.contains('online')) {
+                    elembc.classList.add('online')
+                }
+            }
+            else {
+                if(elembc.classList.contains('online')) {
+                    elembc.classList.remove('online')
+                }
+            }
+        })
+    })
 })();
