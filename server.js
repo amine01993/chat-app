@@ -37,8 +37,6 @@ let db = knex({
     }
 })
 
-const sockets = []
-
 app.use(compression())
 app.use(express.static(path.join(__dirname, '/public')))
 
@@ -245,7 +243,6 @@ app.post('/profileImage', auth.isAuthorized, async (req, res) => {
 })
 
 io.on('connection', async (socket) => {
-    sockets.push(socket)
     socket.user_id = socket.handshake.session.passport.user.id
     
     const currentUser = await db.select('id AS user_id', 'username', 'chatPicture', 'sex')
@@ -268,7 +265,7 @@ io.on('connection', async (socket) => {
         lastConnection
     })
 
-    console.log('a user connected, ' + socket.user_id + ', users: ' + util.inspect(sockets.map(s => s.user_id)))
+    console.log('a user connected, ' + socket.user_id + ', users: ' + util.inspect(Object.keys(io.sockets.clients().connected).length))
 
     socket.on('handleMessage', async (data) => {
         console.log('handleMessage', util.inspect(data))
@@ -385,12 +382,7 @@ io.on('connection', async (socket) => {
     })
 
     socket.on('disconnect', async () => {
-        let index = sockets.indexOf(socket)
-        if (index != -1) {
-            sockets.splice(index, 1)
-        }
-
-        console.log('user disconnected, ' + socket.user_id + ', users: ' + +util.inspect(sockets.map(s => s.user_id)))
+        console.log('user disconnected, ' + socket.user_id + ', users: ' + util.inspect(Object.keys(io.sockets.clients().connected).length))
         
         socket.broadcast.emit('connectionStatusListener', {
             user_id: socket.user_id,
@@ -491,8 +483,10 @@ async function getChannels(current_user) {
     }
 
     // add connectionStatus property to each channel
+    const clients = io.sockets.clients() // connected users
     channels.forEach((channel, index) => {
-        sockets.forEach(socket => {
+        Object.keys(clients.connected).forEach(socketId => {
+            const socket = clients.connected[socketId]
             if (channel.users.length == 1) {
                 channel.connectionStatus = true
             } else {

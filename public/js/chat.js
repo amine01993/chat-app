@@ -39,6 +39,72 @@
             : `default-img/${gender == 'female' ? 'default-female-icon.png' : 'default-icon.png'}`
     }
 
+    function addMessage({user_id, msg, chatPicture, sex, created_at}) {
+
+        const dateMoment = moment(new Date(created_at))
+        if(prev_day == null || prev_day != dateMoment.format('DDMMYYYY')) {
+            prev_day = dateMoment.format('DDMMYYYY')
+            const dayDate = parser.parseFromString(chatDateTemplate, 'text/html').body.firstChild
+            dayDate.innerHTML = dateMoment.format('DD/MM/YYYY HH:mm')
+            chatHistoryList.appendChild(dayDate)
+        }
+
+        const messageElem = parser.parseFromString(messageTemplate, 'text/html').body.firstChild
+        
+        const textMessage = messageElem.querySelector('.message')
+        textMessage.innerText = msg
+        textMessage.classList.add('tooltipped')
+        textMessage.setAttribute('data-tooltip', moment(new Date(created_at)).format('MMM D, YYYY [at] HH:mm'))
+
+        if(user_id == connectedUserId) {
+            messageElem.classList.add('right')
+            textMessage.setAttribute('data-position', 'left')
+        }
+        else {
+            textMessage.setAttribute('data-position', 'right')
+        }
+
+        M.Tooltip.init(textMessage, {})
+
+        if(user_id == prev_user_id) {
+            messageElem.classList.add('coalesce')
+            messageElem.removeChild(messageElem.querySelector('img.circle'))
+        }
+        else {
+            messageElem.querySelector('img.circle').src = getChatPicture(chatPicture, sex)
+        }
+        prev_user_id = user_id
+        
+        chatHistoryList.appendChild(messageElem)
+    }
+
+    function setConnectionStatus(channel_uuid, connected) {
+        const ccs = channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid)
+        if(ccs) {
+            ccs.connected = connected
+        }
+        else {
+            channelsConnectionStatus.push({
+                channel_uuid: channel_uuid,
+                connected
+            })
+        }
+    }
+
+    function updateConnectionStatus(channel_uuid, lastConnection) {
+        if(channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid && c.connected)) {
+            chatCard.querySelector('.connection-status').innerHTML = 'Currently Online'
+        }
+        else {
+            if(lastConnection) {
+                chatCard.querySelector('.connection-status').innerHTML = `Last Connection at ${moment(new Date(lastConnection)).format('DD/MM/YYYY HH:mm')}`
+            }
+            else {
+                chatCard.querySelector('.connection-status').innerHTML = ''
+            }
+        }
+    }
+
     socket.on('channels', channels => {
         console.log(channels)
 
@@ -71,16 +137,7 @@
             if(connectionStatus) {
                 channelItem.querySelector('.badged-circle').classList.add('online')
             }
-            const ccs = channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid)
-            if(ccs) {
-                ccs.connected = connectionStatus
-            }
-            else {
-                channelsConnectionStatus.push({
-                    channel_uuid: channel_uuid,
-                    connected: connectionStatus
-                })
-            }
+            setConnectionStatus(channel_uuid, connectionStatus)
             
             const chatPicture = otherUsers[0].chatPicture, gender = otherUsers[0].sex
             channelItem.querySelector('img.circle').src = getChatPicture(chatPicture, gender)
@@ -111,20 +168,14 @@
         console.log('chat', {channel_uuid, users, messages, channel_item_id})
 
         chatWith.innerHTML = `Chat with ${users.filter(u => users.length == 1 || u.user_id != connectedUserId).map(u => u.username).join(', ')}`
-        if(channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid && c.connected)) {
-            chatCard.querySelector('.connection-status').innerHTML = 'Currently Online'
+        
+        const _users = users.filter(u => (users.length == 1 || u.user_id != connectedUserId) && u.lastConnection)
+        let lastConnection = null
+        if(_users.length > 0) {
+            const _user = _users.sort((la, lb) => la.lastConnection <= lb.lastConnection ? 1 : -1)[0]
+            lastConnection = _user.lastConnection
         }
-        else {
-            const _users = users.filter(u => (users.length == 1 || u.user_id != connectedUserId) && u.lastConnection)
-            if(_users.length > 0) {
-                const _user = _users.sort((la, lb) => la.lastConnection <= lb.lastConnection ? 1 : -1)[0]
-                const lastConnection = _user.lastConnection
-                chatCard.querySelector('.connection-status').innerHTML = `Last Connection at ${moment(new Date(lastConnection)).format('DD/MM/YYYY HH:mm')}`
-            }
-            else {
-                chatCard.querySelector('.connection-status').innerHTML = ''
-            }
-        }
+        updateConnectionStatus(channel_uuid, lastConnection)
 
         // update channelItem id
         if(channel_item_id) {
@@ -137,42 +188,7 @@
         selected_channel_uuid = channel_uuid
         prev_day = null
         for (let mi = 0; mi < messages.length; mi++) {
-            const {user_id, msg, chatPicture, sex, created_at} = messages[mi]
-            const dateMoment = moment(new Date(created_at))
-            if(prev_day == null || prev_day != dateMoment.format('DDMMYYYY')) {
-                prev_day = dateMoment.format('DDMMYYYY')
-                const dayDate = parser.parseFromString(chatDateTemplate, 'text/html').body.firstChild
-                dayDate.innerHTML = dateMoment.format('DD/MM/YYYY HH:mm')
-                chatHistoryList.appendChild(dayDate)
-            }
-
-            const message = parser.parseFromString(messageTemplate, 'text/html').body.firstChild
-            
-            const textMessage = message.querySelector('.message')
-            textMessage.innerText = msg
-            textMessage.classList.add('tooltipped')
-            textMessage.setAttribute('data-tooltip', moment(new Date(created_at)).format('MMM D, YYYY [at] HH:mm'))
-
-            if(user_id == connectedUserId) {
-                message.classList.add('right')
-                textMessage.setAttribute('data-position', 'left')
-            }
-            else {
-                textMessage.setAttribute('data-position', 'right')
-            }
-
-            M.Tooltip.init(textMessage, {})
-
-            if(user_id == prev_user_id) {
-                message.classList.add('coalesce')
-                message.removeChild(message.querySelector('img.circle'))
-            }
-            else {
-                message.querySelector('img.circle').src = getChatPicture(chatPicture, sex)
-            }
-            prev_user_id = user_id
-            
-            chatHistoryList.appendChild(message)
+            addMessage(messages[mi])
         }
     })
 
@@ -192,43 +208,7 @@
 
     socket.on('messageListener', data => {
         console.log(data)
-
-        const {user_id, msg, chatPicture, sex, created_at} = data.msg
-        const dateMoment = moment(new Date(created_at))
-        if(prev_day == null || prev_day != dateMoment.format('DDMMYYYY')) {
-            prev_day = dateMoment.format('DDMMYYYY')
-            const dayDate = parser.parseFromString(chatDateTemplate, 'text/html').body.firstChild
-            dayDate.innerHTML = dateMoment.format('DD/MM/YYYY HH:mm')
-            chatHistoryList.appendChild(dayDate)
-        }
-
-        const message = parser.parseFromString(messageTemplate, 'text/html').body.firstChild
-        const textMessage = message.querySelector('.message')
-        textMessage.innerText = msg
-        textMessage.classList.add('tooltipped')
-        textMessage.setAttribute('data-tooltip', moment(new Date(created_at)).format('MMM D, YYYY [at] HH:mm'))
-
-        if(user_id == connectedUserId) {
-            message.classList.add('right')
-            textMessage.setAttribute('data-position', 'left')
-        }
-        else {
-            textMessage.setAttribute('data-position', 'right')
-        }
-
-        M.Tooltip.init(textMessage, {})
-
-        if(user_id == prev_user_id) {
-            message.classList.add('coalesce')
-            message.removeChild(message.querySelector('img.circle'))
-        }
-        else {
-            message.querySelector('img.circle').src = getChatPicture(chatPicture, sex)
-        }
-        prev_user_id = user_id
-        message.querySelector('.message').innerText = msg
-        
-        chatHistoryList.appendChild(message)
+        addMessage(data.msg)
     })
 
     socket.on('connectionStatusListener', ({user_id, connected, lastConnection}) => {
@@ -245,29 +225,10 @@
                 if(!elembc.classList.contains('online')) {
                     elembc.classList.add('online')
                     const channel_uuid = elem.getAttribute('data-channel_uuid')
-                    const ccs = channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid)
-                    if(ccs) {
-                        ccs.connected = true
-                    }
-                    else {
-                        channelsConnectionStatus.push({
-                            channel_uuid: channel_uuid,
-                            connected: true
-                        })
-                    }
+                    setConnectionStatus(channel_uuid, true)
 
                     if(selected_channel_uuid == channel_uuid) {
-                        if(channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid && c.connected)) {
-                            chatCard.querySelector('.connection-status').innerHTML = 'Currently Online'
-                        }
-                        else {
-                            if(lastConnection) {
-                                chatCard.querySelector('.connection-status').innerHTML = `Last Connection at ${moment(new Date(lastConnection)).format('DD/MM/YYYY HH:mm')}`
-                            }
-                            else {
-                                chatCard.querySelector('.connection-status').innerHTML = ''
-                            }
-                        }
+                        updateConnectionStatus(channel_uuid, lastConnection)
                     }        
                 }
             }
@@ -275,29 +236,10 @@
                 if(elembc.classList.contains('online')) {
                     elembc.classList.remove('online')
                     const channel_uuid = elem.getAttribute('data-channel_uuid')
-                    const ccs = channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid)
-                    if(ccs) {
-                        ccs.connected = false
-                    }
-                    else {
-                        channelsConnectionStatus.push({
-                            channel_uuid: channel_uuid,
-                            connected: false
-                        })
-                    }
+                    setConnectionStatus(channel_uuid, false)
 
                     if(selected_channel_uuid == channel_uuid) {
-                        if(channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid && c.connected)) {
-                            chatCard.querySelector('.connection-status').innerHTML = 'Currently Online'
-                        }
-                        else {
-                            if(lastConnection) {
-                                chatCard.querySelector('.connection-status').innerHTML = `Last Connection at ${moment(new Date(lastConnection)).format('DD/MM/YYYY HH:mm')}`
-                            }
-                            else {
-                                chatCard.querySelector('.connection-status').innerHTML = ''
-                            }
-                        }
+                        updateConnectionStatus(channel_uuid, lastConnection)
                     }        
                 }
             }
