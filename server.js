@@ -254,9 +254,18 @@ io.on('connection', async (socket) => {
 
     socket.emit('channels', channels)
 
+    // update last connection
+    const lastConnection = (await db('users')
+    .where('id', '=', socket.user_id)
+    .returning('lastConnection')
+    .update({
+        lastConnection: db.fn.now()
+    }))[0]
+
     socket.broadcast.emit('connectionStatusListener', {
         user_id: socket.user_id,
-        connected: true
+        connected: true,
+        lastConnection
     })
 
     console.log('a user connected, ' + socket.user_id + ', users: ' + util.inspect(sockets.map(s => s.user_id)))
@@ -302,7 +311,7 @@ io.on('connection', async (socket) => {
 
         if (channelExist) {
             channel_uuid = data.channel_uuid
-            users = await db.select('u.id AS user_id', 'u.username')
+            users = await db.select('u.id AS user_id', 'u.username', 'u.lastConnection')
                 .from('channel_user AS cu')
                 .innerJoin('users AS u', 'u.id', 'cu.user_id')
                 .where('cu.channel_uuid', '=', channel_uuid)
@@ -311,7 +320,7 @@ io.on('connection', async (socket) => {
             if(data.userIds.length == 2) {
                 const channelUsers = await db.select(
                         'cu.channel_uuid',
-                        db.raw('json_agg(json_build_object(\'user_id\', cu.user_id, \'username\', u.username)) users')
+                        db.raw('json_agg(json_build_object(\'user_id\', cu.user_id, \'username\', u.username, \'lastConnection\', u."lastConnection")) users')
                     )
                     .from('channel_user AS cu')
                     .innerJoin('users AS u', 'u.id', 'cu.user_id')
@@ -385,7 +394,8 @@ io.on('connection', async (socket) => {
         
         socket.broadcast.emit('connectionStatusListener', {
             user_id: socket.user_id,
-            connected: false
+            connected: false,
+            lastConnection
         })
     })
 

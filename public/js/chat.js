@@ -31,6 +31,8 @@
     const chatDateTemplate = `<div class="chat-date">
     </div>`
 
+    const channelsConnectionStatus = [] // {channel_uuid, connected}
+
     function getChatPicture(chatPicture, gender) {
         return chatPicture != null && chatPicture != '' 
             ? `img/${chatPicture}` 
@@ -65,9 +67,21 @@
                 channelItem.querySelector('.sub-title').innerText = subtitle
                 channelItem.querySelector('.last-msg-date').innerText = moment(new Date(created_at)).format('DD/MM/YYYY HH:mm')
             }
+
             if(connectionStatus) {
                 channelItem.querySelector('.badged-circle').classList.add('online')
             }
+            const ccs = channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid)
+            if(ccs) {
+                ccs.connected = connectionStatus
+            }
+            else {
+                channelsConnectionStatus.push({
+                    channel_uuid: channel_uuid,
+                    connected: connectionStatus
+                })
+            }
+            
             const chatPicture = otherUsers[0].chatPicture, gender = otherUsers[0].sex
             channelItem.querySelector('img.circle').src = getChatPicture(chatPicture, gender)
             channelItem.setAttribute('data-channel_uuid', channel_uuid) // existing or temporary
@@ -93,23 +107,37 @@
     })
 
     let prev_user_id = null, prev_day = null
-    socket.on('chat', data => {
-        console.log('chat', data)
+    socket.on('chat', ({channel_uuid, users, messages, channel_item_id}) => {
+        console.log('chat', {channel_uuid, users, messages, channel_item_id})
 
-        chatWith.innerHTML = `Chat with ${data.users.filter(u => data.users.length == 1 || u.user_id != connectedUserId).map(u => u.username).join(', ')}`
-        chatHistoryList.innerHTML = ''
-
-        // update channelItem id
-        if(data.channel_item_id) {
-            const channelItem = document.querySelector(`[data-channel_uuid=${data.channel_item_id}]`)
-            channelItem.setAttribute('data-channel_uuid', data.channel_uuid)
+        chatWith.innerHTML = `Chat with ${users.filter(u => users.length == 1 || u.user_id != connectedUserId).map(u => u.username).join(', ')}`
+        if(channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid && c.connected)) {
+            chatCard.querySelector('.connection-status').innerHTML = 'Currently Online'
+        }
+        else {
+            const _users = users.filter(u => (users.length == 1 || u.user_id != connectedUserId) && u.lastConnection)
+            if(_users.length > 0) {
+                const _user = _users.sort((la, lb) => la.lastConnection <= lb.lastConnection ? 1 : -1)[0]
+                const lastConnection = _user.lastConnection
+                chatCard.querySelector('.connection-status').innerHTML = `Last Connection at ${moment(new Date(lastConnection)).format('DD/MM/YYYY HH:mm')}`
+            }
+            else {
+                chatCard.querySelector('.connection-status').innerHTML = ''
+            }
         }
 
-        selected_channel_uuid = data.channel_uuid
-        
+        // update channelItem id
+        if(channel_item_id) {
+            const channelItem = document.querySelector(`[data-channel_uuid=${channel_item_id}]`)
+            channelItem.setAttribute('data-channel_uuid', channel_uuid)
+        }
+
+        chatHistoryList.innerHTML = ''
+
+        selected_channel_uuid = channel_uuid
         prev_day = null
-        for (let mi = 0; mi < data.messages.length; mi++) {
-            const {user_id, msg, chatPicture, sex, created_at} = data.messages[mi]
+        for (let mi = 0; mi < messages.length; mi++) {
+            const {user_id, msg, chatPicture, sex, created_at} = messages[mi]
             const dateMoment = moment(new Date(created_at))
             if(prev_day == null || prev_day != dateMoment.format('DDMMYYYY')) {
                 prev_day = dateMoment.format('DDMMYYYY')
@@ -203,8 +231,9 @@
         chatHistoryList.appendChild(message)
     })
 
-    socket.on('connectionStatusListener', ({user_id, connected}) => {
+    socket.on('connectionStatusListener', ({user_id, connected, lastConnection}) => {
         console.log('connectionStatusListener', user_id)
+        // if one user is connected then the channel is online
         Array.from(channelsList.querySelectorAll(`.collection-item`))
         .filter(elem => {
             return elem.getAttribute('data-users').split('-').includes(user_id.toString())
@@ -215,11 +244,61 @@
             if(connected) {
                 if(!elembc.classList.contains('online')) {
                     elembc.classList.add('online')
+                    const channel_uuid = elem.getAttribute('data-channel_uuid')
+                    const ccs = channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid)
+                    if(ccs) {
+                        ccs.connected = true
+                    }
+                    else {
+                        channelsConnectionStatus.push({
+                            channel_uuid: channel_uuid,
+                            connected: true
+                        })
+                    }
+
+                    if(selected_channel_uuid == channel_uuid) {
+                        if(channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid && c.connected)) {
+                            chatCard.querySelector('.connection-status').innerHTML = 'Currently Online'
+                        }
+                        else {
+                            if(lastConnection) {
+                                chatCard.querySelector('.connection-status').innerHTML = `Last Connection at ${moment(new Date(lastConnection)).format('DD/MM/YYYY HH:mm')}`
+                            }
+                            else {
+                                chatCard.querySelector('.connection-status').innerHTML = ''
+                            }
+                        }
+                    }        
                 }
             }
             else {
                 if(elembc.classList.contains('online')) {
                     elembc.classList.remove('online')
+                    const channel_uuid = elem.getAttribute('data-channel_uuid')
+                    const ccs = channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid)
+                    if(ccs) {
+                        ccs.connected = false
+                    }
+                    else {
+                        channelsConnectionStatus.push({
+                            channel_uuid: channel_uuid,
+                            connected: false
+                        })
+                    }
+
+                    if(selected_channel_uuid == channel_uuid) {
+                        if(channelsConnectionStatus.find(c => c.channel_uuid == channel_uuid && c.connected)) {
+                            chatCard.querySelector('.connection-status').innerHTML = 'Currently Online'
+                        }
+                        else {
+                            if(lastConnection) {
+                                chatCard.querySelector('.connection-status').innerHTML = `Last Connection at ${moment(new Date(lastConnection)).format('DD/MM/YYYY HH:mm')}`
+                            }
+                            else {
+                                chatCard.querySelector('.connection-status').innerHTML = ''
+                            }
+                        }
+                    }        
                 }
             }
         })

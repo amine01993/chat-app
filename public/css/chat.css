@@ -203,3 +203,11 @@ p {
     top: 13px;
     right: 5px;
 }
+
+#chat-card .card-content .card-title {
+    margin-bottom: 5px;
+}
+
+#chat-card .card-content p.connection-status {
+    font-size: 14px;
+}

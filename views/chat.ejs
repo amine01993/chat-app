@@ -3,8 +3,8 @@
 <% block('title', 'Chat') %>
 
 <% stylesheet('css/chat.css') %>
-<% script('js/chat.js') %>
 <% script('moment/moment.min.js') %>
+<% script('js/chat.js') %>
 
 <% block('scriptsLib', '<script src="/socket.io/socket.io.js"></script>') %>
 
@@ -20,7 +20,9 @@
           <span class="card-title">
             <!-- Jane Doe -->
           </span>
-          <!-- <p class="">Currently Online</p> -->
+          <p class="connection-status">
+            <!-- Currently Online -->
+          </p>
         </div>
 
         <div class="divider"></div>
