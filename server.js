@@ -373,15 +373,95 @@ io.on('connection', async (socket) => {
             console.log(util.inspect(clients))
         });
 
+        const acUsers = await db.select('u.id', 'u.username')
+        .from('users AS u')
+        .whereNotExists(function() {
+            this.select('*')
+            .from('channel_user AS cu')
+            .where('cu.channel_uuid', '=', channel_uuid)
+            .andWhereRaw('cu.user_id = u.id')
+        })
+
         socket.emit('chat', {
             channel_uuid,
             messages,
             users,
-            channel_item_id: channelExist ? null : data.channel_uuid
+            channel_item_id: channelExist ? null : data.channel_uuid,
+            acUsers
         })
     })
 
-    socket.on('disconnect', async () => {
+    socket.on('addUsersToChannel', async ({users, channel_uuid}) => {
+        // check if the channel exist
+        const channel = await db.select(
+            'cu.channel_uuid',
+            db.raw(`json_agg(json_build_object('user_id', cu.user_id, 'username', u.username, 'chatPicture', u."chatPicture", 'sex', u.sex)) users`)
+        )
+        .from('channel_user AS cu')
+        .innerJoin('users AS u', 'u.id', 'cu.user_id')
+        .where('cu.channel_uuid', '=', channel_uuid)
+        .groupBy('cu.channel_uuid')
+        .first()
+        if(!channel) {
+            return
+        }
+
+        // check if a channel with the same set of users doesn't exist
+        const channel_user_ids = channel.users.map(u => u.user_id)
+        users.forEach(user_id => {
+            if(!channel_user_ids.includes(user_id)) {
+                channel_user_ids.push(user_id)
+            }
+        })
+        const channelE = await db.select('cu.channel_uuid')
+        .from('channel_user AS cu')
+        .groupBy('cu.channel_uuid')
+        .havingRaw(`${channel_user_ids.map(id => `${id} = ANY(array_agg(cu.user_id))`).join(' AND ')} AND COUNT(*) = ${channel_user_ids.length}`)
+        .first()
+        if(channelE) {
+            return
+        }
+
+        const messages = await db.select('id')
+        .from('messages')
+        .where('channel_uuid', '=', channel_uuid)
+
+        users.forEach(async user_id => {
+            // add user to the channel
+            await db('channel_user').insert({
+                user_id, channel_uuid
+            })
+            // add messages metadata
+            messages.forEach(async m => {
+                await db('message_metadatas').insert({
+                    message_id: m.id,
+                    participant_id: user_id
+                })
+            })
+        })
+
+        const clients = io.sockets.clients() // connected users
+        Object.keys(clients.connected).forEach(async socketId => {
+            const _socket = clients.connected[socketId]
+            let user = channel.users.find(u => u.user_id == _socket.user_id)
+            if(user) {
+                io.in(socketId).emit('channels', await getChannels(user))
+                _socket.join(channel_uuid)
+            }
+        })
+        
+        const acUsers = await db.select('u.id', 'u.username')
+        .from('users AS u')
+        .whereNotExists(function() {
+            this.select('*')
+            .from('channel_user AS cu')
+            .where('cu.channel_uuid', '=', channel_uuid)
+            .andWhereRaw('cu.user_id = u.id')
+        })
+        socket.emit('updateAddGroup', acUsers)
+    })
+
+    socket.on('disconnect', () => {
         console.log('user disconnected, ' + socket.user_id + ', users: ' + util.inspect(Object.keys(io.sockets.clients().connected).length))
         
         socket.broadcast.emit('connectionStatusListener', {

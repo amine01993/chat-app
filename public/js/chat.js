@@ -17,6 +17,8 @@
     const chatCard = document.getElementById('chat-card')
     const chatWith = chatCard.querySelector('.card-title')
     const chatHistoryList = chatCard.querySelector('.chat-wrapper')
+    const addGroupContainer = chatCard.querySelector('.add-group-container')
+    const addGroupAction = document.getElementById('add-group-action')
     const msgForm = chatCard.querySelector('#message-form')
     const msgInput = chatCard.querySelector('#message-input')
 
@@ -32,6 +34,14 @@
     </div>`
 
     const channelsConnectionStatus = [] // {channel_uuid, connected}
+
+    const addGroupAutoComplete = document.querySelectorAll('.add-group-container .chips')
+    const addGroupInst = M.Chips.init(addGroupAutoComplete, {
+        placeholder: 'Add users to join this conversation',
+        autocompleteOptions: {
+            data: {}
+        }
+    })[0]
 
     function getChatPicture(chatPicture, gender) {
         return chatPicture != null && chatPicture != '' 
@@ -105,6 +115,20 @@
         }
     }
 
+    function updateAddGroup(acUsers) {
+        // clear chips data
+        addGroupInst.chipsData = []
+        addGroupInst._renderChips()
+
+        addGroupAction.classList.remove('hide')
+
+        ac_users = acUsers.reduce((accumulator, currentValue) => Object.assign(accumulator, {[currentValue.username]: currentValue.id}), {})
+        console.log('ac_users', ac_users)
+        addGroupInst.autocomplete.updateData(
+            acUsers.reduce((accumulator, currentValue) => Object.assign(accumulator, {[currentValue.username]: null}), {})
+        )
+    }
+
     socket.on('channels', channels => {
         console.log(channels)
 
@@ -161,10 +185,15 @@
             })
             channelsList.appendChild(channelItem)
         }
+
+        if(selected_channel_uuid) {
+            const channelElem = channelsList.querySelector(`[data-channel_uuid='${selected_channel_uuid}']`)
+            channelElem.classList.add('active')
+        }
     })
 
-    let prev_user_id = null, prev_day = null
-    socket.on('chat', ({channel_uuid, users, messages, channel_item_id}) => {
+    let prev_user_id = null, prev_day = null, ac_users = null
+    socket.on('chat', ({channel_uuid, users, messages, channel_item_id, acUsers}) => {
         console.log('chat', {channel_uuid, users, messages, channel_item_id})
 
         chatWith.innerHTML = `Chat with ${users.filter(u => users.length == 1 || u.user_id != connectedUserId).map(u => u.username).join(', ')}`
@@ -190,6 +219,13 @@
         for (let mi = 0; mi < messages.length; mi++) {
             addMessage(messages[mi])
         }
+
+        // update addGroup AutoComplete
+        updateAddGroup(acUsers)
+    })
+
+    socket.on('updateAddGroup', (acUsers) => {
+        updateAddGroup(acUsers)
     })
 
     let selected_channel_uuid = null
@@ -221,28 +257,41 @@
         .map(elem => {
             console.log(elem)
             const elembc = elem.querySelector('.badged-circle')
-            if(connected) {
-                if(!elembc.classList.contains('online')) {
-                    elembc.classList.add('online')
-                    const channel_uuid = elem.getAttribute('data-channel_uuid')
-                    setConnectionStatus(channel_uuid, true)
 
-                    if(selected_channel_uuid == channel_uuid) {
-                        updateConnectionStatus(channel_uuid, lastConnection)
-                    }        
-                }
+            if(connected) {
+                elembc.classList.add('online')
             }
             else {
-                if(elembc.classList.contains('online')) {
-                    elembc.classList.remove('online')
-                    const channel_uuid = elem.getAttribute('data-channel_uuid')
-                    setConnectionStatus(channel_uuid, false)
+                elembc.classList.remove('online')
+            }
+            const channel_uuid = elem.getAttribute('data-channel_uuid')
+            setConnectionStatus(channel_uuid, connected ? true : false)
 
-                    if(selected_channel_uuid == channel_uuid) {
-                        updateConnectionStatus(channel_uuid, lastConnection)
-                    }        
-                }
+            if(selected_channel_uuid == channel_uuid) {
+                updateConnectionStatus(channel_uuid, lastConnection)
             }
         })
     })
+
+    addGroupAction.addEventListener('click', event => {
+        addGroupContainer.classList.toggle('hide')
+    })
+
+    document.getElementById('add-users-btn').addEventListener('click', event => {
+        console.log(addGroupInst)
+        console.log(addGroupInst.chipsData)
+        console.log(selected_channel_uuid)
+
+        if(!selected_channel_uuid)
+            return
+        
+        const users = addGroupInst.chipsData.map(c => ac_users[c.tag])
+        console.log(users)
+        socket.emit('addUsersToChannel', {
+            users,
+            channel_uuid: selected_channel_uuid
+        })
+    })
+
+    socket.on('updateChannels')
 })();

@@ -204,10 +204,36 @@ p {
     right: 5px;
 }
 
+#chat-card .card-content {
+    position: relative;
+    z-index: 1;
+}
+
 #chat-card .card-content .card-title {
     margin-bottom: 5px;
 }
 
 #chat-card .card-content p.connection-status {
     font-size: 14px;
+}
+
+#chat-card .chat-action {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.add-group-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    width: 100%;
+    background-color: white;
+}
+
+.add-group-container .chips {
+    display: inline-block;
+    margin: 1rem;
+    width: calc(100% - 142px);
 }
