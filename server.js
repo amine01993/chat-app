@@ -483,7 +483,10 @@ async function getChannels(current_user) {
         `SELECT ch_u.channel_uuid, ch_m.body, ch_m.sender_id, ch_m.created_at, ch_u.users
         FROM (
             SELECT cu.channel_uuid,
-                json_agg(json_build_object('user_id', cu.user_id, 'username', u.username, 'chatPicture', u."chatPicture", 'sex', u.sex)) users
+                json_agg(json_build_object(
+                    'user_id', cu.user_id, 'username', u.username, 'chatPicture', u."chatPicture", 'sex', u.sex,
+                    'lastConnection', u."lastConnection"
+                ) ORDER BY u."lastConnection" DESC NULLS LAST) users 
             FROM channel_user AS cu
             INNER JOIN users AS u ON u.id = cu.user_id
             GROUP BY cu.channel_uuid

@@ -167,6 +167,13 @@ p {
     vertical-align: middle;
 }
 
+.collection-item .title {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    width: 136px;
+    overflow: hidden;
+}
+
 .badged-circle.online::before {
     background-color: #66BB6A;
 }
@@ -182,7 +189,23 @@ p {
     background-color: #ddd;
     border-radius: 50%;
     border: 2px solid #fff;
+    z-index: 2;
+}
+
+#channels-list .badged-circle.group-picture img:first-child {
+    width: 32px;
+    height: 32px;
+    top: 21px;
     z-index: 1;
+    border: 3px solid #fff;
+}
+
+#channels-list .badged-circle.group-picture img:last-child {
+    width: 32px;
+    height: 32px;
+    left: 28px;
+    top: 7px;
+    border: 3px solid #fff;
 }
 
 .collection .collection-item.avatar .sub-title {
@@ -211,6 +234,11 @@ p {
 
 #chat-card .card-content .card-title {
     margin-bottom: 5px;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: calc(100% - 122px);
 }
 
 #chat-card .card-content p.connection-status {

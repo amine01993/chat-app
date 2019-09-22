@@ -163,8 +163,23 @@
             }
             setConnectionStatus(channel_uuid, connectionStatus)
             
-            const chatPicture = otherUsers[0].chatPicture, gender = otherUsers[0].sex
-            channelItem.querySelector('img.circle').src = getChatPicture(chatPicture, gender)
+            if(otherUsers.length > 1) {
+                channelItem.querySelector('.badged-circle').classList.add('group-picture')
+            }
+            otherUsers.slice(0, 2).forEach((u, i, arr) => {
+                const {chatPicture, gender} = u
+                if(i == 0) {
+                    const img = channelItem.querySelector('img.circle')
+                    img.src = getChatPicture(chatPicture, gender)
+                }
+                else {
+                    const img = document.createElement('img')
+                    img.src = getChatPicture(chatPicture, gender)
+                    img.classList.add('circle')
+                    img.alt = 'avatar'
+                    channelItem.querySelector('.badged-circle').appendChild(img)
+                }
+            })
             channelItem.setAttribute('data-channel_uuid', channel_uuid) // existing or temporary
             channelItem.setAttribute('data-users', users.map(u => u.user_id).join('-'))
 
