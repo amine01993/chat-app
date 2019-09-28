@@ -235,6 +235,11 @@
             addMessage(messages[mi])
         }
 
+        const lastChatMsg = chatHistoryList.querySelector('.chat-message:last-child') 
+        if(lastChatMsg) {
+            lastChatMsg.scrollIntoView(true)
+        }
+
         // update addGroup AutoComplete
         updateAddGroup(acUsers)
     })
@@ -307,6 +312,4 @@
             channel_uuid: selected_channel_uuid
         })
     })
-
-    socket.on('updateChannels')
 })()
