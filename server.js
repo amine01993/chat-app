@@ -3,7 +3,7 @@ const app = express()
 const fs = require('fs')
 const sharp = require('sharp')
 const http = require('http').createServer(app)
-const engine = require('ejs-blocks')
+const nunjucks = require('nunjucks')
 const io = require('socket.io')(http)
 const util = require('util')
 const compression = require('compression')
@@ -40,9 +40,10 @@ let db = knex({
 app.use(compression())
 app.use(express.static(path.join(__dirname, '/public')))
 
-app.set('views', path.join(__dirname, '/views'))
-app.engine('ejs', engine);
-app.set('view engine', 'ejs');
+nunjucks.configure('views', {
+    autoescape: true,
+    express: app
+});
 
 app.use(bodyParser.json({
     limit: '5mb',
@@ -104,12 +105,12 @@ app.use(passport.initialize())
 app.use(passport.session())
 
 app.get('/', auth.isAuthorized, (req, res) => {
-    res.render('chat', {user: req.user})
+    res.render('chat.html', {user: req.user})
 })
 
 // create the login get and post routes
 app.get('/login', (req, res) => {
-    res.render('login', {})
+    res.render('login.html', {})
 })
 
 app.post('/login', (req, res, next) => {
@@ -117,7 +118,7 @@ app.post('/login', (req, res, next) => {
     passport.authenticate('local', (err, user, info) => {
         if (info) {
             // return res.send(info.message)
-            return res.render('login', {msg: info.message})
+            return res.render('login.html', {msg: info.message})
         }
         if (err) {
             return next(err)
@@ -136,7 +137,7 @@ app.post('/login', (req, res, next) => {
 })
 
 app.get('/register', (req, res) => {
-    res.render('register', {})
+    res.render('register.html', {})
 })
 
 app.post('/register', [
@@ -176,7 +177,7 @@ app.post('/register', [
     const errors = validationResult(req);
 
     if (!errors.isEmpty()) {
-        return res.render('register', {errors: errors.mapped(), data: req.body})
+        return res.render('register.html', {errors: errors.mapped(), data: req.body})
     }
 
     // save user in the database
@@ -209,7 +210,7 @@ app.post('/register', [
 })
 
 app.get('/profile', auth.isAuthorized, (req, res) => {
-    res.render('profile', { user: req.user });
+    res.render('profile.html', { user: req.user });
 })
 
 app.post('/profileName', auth.isAuthorized, async (req, res) => {

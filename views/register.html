@@ -1,7 +1,8 @@
-<% layout('layout') -%>
+{% extends "layout.html" %}
 
-<% block('title', 'Register') %>
+{% block title %}Register{% endblock %}
 
+{% block body %}
 <style>
     .vertical-container {
         height: 100vh;
@@ -28,43 +29,50 @@
 
                 <div class="row">
                     <div class="input-field col s12">
-                        <% if(typeof errors == 'object') { %>
-                            <input id="username" type="text" value="<%= data.username %>" class="errors.hasOwnProperty('username') ? 'invalid' : ''" name="username">
+                        {% if errors %}
+                            <input id="username" type="text" name="username"
+                                value="{{ data.username }}" 
+                                class="{{ 'invalid' if errors.username else '' }}">
                             <label for="username">Username</label>
-                            <span class="helper-text" data-error="<%= errors.hasOwnProperty('username') ? errors.username.msg : ''%>"></span>
-                        <% } else { %>
+                            <span class="helper-text" 
+                                data-error="{{ errors.username.msg if errors.username else '' }}"></span>
+                        {% else %}
                             <input id="username" type="text" class="validate" name="username">
                             <label for="username">Username</label>
                             <span class="helper-text"></span>
-                        <% } %>
+                        {% endif %}
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="input-field col s12">
-                        <% if(typeof errors == 'object') { %>
-                            <input id="email" type="email" value="<%= data.email %>" class="errors.hasOwnProperty('email') ? 'invalid' : ''" name="email">
+                        {% if errors %}
+                            <input id="email" type="email" name="email"
+                                value="{{ data.email }}" class="{{ 'invalid' if errors.email else '' }}">
                             <label for="email">Email</label>
-                            <span class="helper-text" data-error="<%= errors.hasOwnProperty('email') ? errors.email.msg : '' %>"></span>
-                        <% } else { %>
+                            <span class="helper-text"
+                                data-error="{{ errors.email.msg if errors.email else '' }}"></span>
+                        {% else %}
                             <input id="email" type="email" class="validate" name="email">
                             <label for="email">Email</label>
                             <span class="helper-text"></span>
-                        <% } %>
+                        {% endif %}
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="input-field col s6">
-                        <% if( typeof errors == 'object') { %>
-                            <input id="password" type="password" value="<%= data.password %>" class="<%= errors.hasOwnProperty('password') ? 'invalid' : '' %>" name="password">
+                        {% if errors %}
+                            <input id="password" type="password" name="password"
+                                value="{{ data.password }}" class="{{ 'invalid' if errors.password else '' }}">
                             <label for="password">Password</label>
-                            <span class="helper-text" data-error="<%= errors.hasOwnProperty('password') ? errors.password.msg : '' %>"></span>
-                        <% } else { %>
+                            <span class="helper-text" 
+                                data-error="{{ errors.password.msg if errors.password else '' }}"></span>
+                        {% else %}
                             <input id="password" type="password" class="validate" name="password">
                             <label for="password">Password</label>
                             <span class="helper-text"></span>
-                        <% } %>
+                        {% endif %}
                     </div>
                     <div class="input-field col s6">
                         <input id="confirmPassword" type="password" class="validate" name="confirmPassword">
@@ -74,11 +82,13 @@
 
                 <div class="row">
                     <div class="input-field col s6">
-                        <input id="first_name" type="text" class="validate" name="firstName" value="<%= typeof data == 'object' ? data.firstName : '' %>">
+                        <input id="first_name" type="text" class="validate" name="firstName" 
+                            value="{{ data.firstName if data else '' }}">
                         <label for="first_name">First Name</label>
                     </div>
                     <div class="input-field col s6">
-                        <input id="last_name" type="text" class="validate" name="lastName" value="<%= typeof data == 'object' ? data.lastName : '' %>">
+                        <input id="last_name" type="text" class="validate" name="lastName" 
+                            value="{{ data.lastName if data else '' }}">
                         <label for="last_name">Last Name</label>
                     </div>
                 </div>
@@ -86,9 +96,9 @@
                 <div class="row">
                     <div class="input-field col s12">
                         <select name="sex" id="sex">
-                            <option value="" disabled <%= typeof data == 'object' && (data.sex == '' || !data.sex) || typeof data != 'object' ? 'selected' : '' %>>Choose your option</option>
-                            <option value="male" <%= typeof data == 'object' && data.sex == 'male' ? 'selected' : '' %>>Male</option>
-                            <option value="female" <%= typeof data == 'object' && data.sex == 'female' ? 'selected' : '' %>>Female</option>
+                            <option value="" disabled {{ 'selected' if data and (data.sex == '' or not data.sex) or not data else '' }}>Choose your option</option>
+                            <option value="male" {{ 'selected' if data and data.sex == 'male' else '' }}>Male</option>
+                            <option value="female" {{ 'selected' if data and data.sex == 'female' else '' }}>Female</option>
                         </select>
                         <label for="sex">Sex</label>
                     </div>
@@ -117,3 +127,5 @@
         console.log(instances)
     })
 </script>
+
+{% endblock %}

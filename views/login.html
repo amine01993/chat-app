@@ -1,7 +1,8 @@
-<% layout('layout') -%>
+{% extends "layout.html" %}
 
-<% block('title', 'Login') %>
+{% block title %}Login{% endblock %}
 
+{% block body %}
 <style>
     .vertical-container {
         height: 100vh;
@@ -32,16 +33,19 @@
 
                 <div class="row">
                     <div class="input-field col s12">
-                        <input id="username" type="text" class="<%= typeof msg == 'string' ? 'invalid' : 'validate' %>" name="username">
+                        <input id="username" type="text" name="username"
+                            class="{{ 'invalid' if msg else 'validate' }}">
                         <label for="username">Username</label>
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="input-field col s12">
-                        <input id="password" type="password" class="<%= typeof msg == 'string' ? 'invalid' : 'validate' %>" name="password">
+                        <input id="password" type="password" name="password"
+                            class="{{ 'invalid' if msg else 'validate' }}">
                         <label for="password">Password</label>
-                        <span class="helper-text center" data-error="<%= typeof msg == 'string' ? msg : '' %>" data-success=""></span>
+                        <span class="helper-text center" 
+                            data-error="{{ msg if msg else '' }}" data-success=""></span>
                     </div>
                 </div>
 
@@ -61,5 +65,4 @@
         </div>
     </div>
 </div>
-
-
+{% endblock %}

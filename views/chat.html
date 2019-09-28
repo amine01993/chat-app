@@ -1,14 +1,21 @@
-<% layout('layout') -%>
+{% extends "layout.html" %}
 
-<% block('title', 'Chat') %>
+{% block title %}Chat{% endblock %}
 
-<% stylesheet('css/chat.css') %>
-<% script('moment/moment.min.js') %>
-<% script('js/chat.js') %>
+{% block stylesheets %}
+  <link rel="stylesheet" href="css/chat.css">
+{% endblock %}
 
-<% block('scriptsLib', '<script src="/socket.io/socket.io.js"></script>') %>
+{% block scriptsLib %}
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="moment/moment.min.js"></script>
+{% endblock %}
+{% block scripts %}
+  <script src="js/chat.js"></script>
+{% endblock %}
 
-<input type="hidden" value="<%= user.id %>" id="connected-user">
+{% block body %}
+<input type="hidden" value="{{ user.id }}" id="connected-user">
 
 <div class="chat-app">
   <div class="flex-container">
@@ -77,3 +84,4 @@
   </div>
 
 </div>
+{% endblock %}

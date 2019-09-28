@@ -4,23 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title><%-blocks.title%></title>
+    <title>{% block title %}Chat App{% endblock %}</title>
     <link rel="icon" href="icons/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="css/index.css">
     <link rel="stylesheet" href="materialize/css/materialize.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <%-stylesheets%>
+    {% block stylesheets %}
+    {% endblock %}
     <script src="materialize/js/materialize.js"></script>
-    <%-blocks.scriptsLib%>
+    {% block scriptsLib %}
+    {% endblock %}
 </head>
-<style>
-    body {
-        background-color: #26a69a;
-    }
-</style>
-<body>
-    <%-body -%>
 
-    <%-scripts%>
+<body>
+    {% block body %}
+    {% endblock %}
+
+    {% block scripts %}
+    {% endblock %}
 </body>
 
 </html>

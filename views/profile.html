@@ -1,23 +1,29 @@
-<% layout('layout') -%>
+{% extends "layout.html" %}
 
-<% block('title', 'Profile') %>
+{% block title %}Profile{% endblock %}
 
-<% stylesheet('css/profile.css') %>
-<% stylesheet('croppr/croppr.css') %>
+{% block stylesheets %}
+  <link rel="stylesheet" href="css/profile.css">
+  <link rel="stylesheet" href="croppr/croppr.css">
+{% endblock %}
 
-<% script('js/profile.js') %>
+{% block scriptsLib %}
+  <script src="croppr/croppr.js"></script>
+{% endblock %}
+{% block scripts %}
+  <script src="js/profile.js"></script>
+{% endblock %}
 
-<% block('scriptsLib', '<script src="croppr/croppr.js"></script>') %>
-
+{% block body %}
 <div class="container">
     <div class="card-panel profile-container">
         <div class="row">
             <div class="col s12">
-                <% if(user.profilePicture != null && user.profilePicture != '') { %>
-                    <img src="img/<%= user.profilePicture %>" alt="Profile Image" class="circle responsive-img profile-img">
-                <% } else { %>
-                    <img src="default-img/<%= user.sex == 'female' ? 'default-female.png' : 'default.png' %>" alt="Profile Image" class="circle responsive-img profile-img">
-                <% } %>
+                {% if user.profilePicture != null and user.profilePicture != '' %}
+                    <img src="img/{{ user.profilePicture }}" alt="Profile Image" class="circle responsive-img profile-img">
+                {% else %}
+                    <img src="default-img/{{ 'default-female.png' if user.sex == 'female' else 'default.png' }}" alt="Profile Image" class="circle responsive-img profile-img">
+                {% endif %}
                 <input type="file" id="input-profile-img" accept="image/*">
             </div>
         </div>
@@ -27,17 +33,17 @@
                 <div class="row info-name">
                     <div class="col s12">
                         <p class="info-name-text center">
-                            <%= user.firstName + ' ' + user.lastName %>
+                            {{ user.firstName + ' ' + user.lastName }}
                         </p>
                     </div>
                 </div>
                 <div class="row input-name hide">
                     <div class="input-field col s6">
-                        <input id="input-first-name" type="text" class="validate" value="<%= user.firstName %>">
+                        <input id="input-first-name" type="text" class="validate" value="{{ user.firstName }}">
                         <label for="input-first-name">First Name</label>
                     </div>
                     <div class="input-field col s6">
-                        <input id="input-last-name" type="text" class="validate" value="<%= user.lastName %>">
+                        <input id="input-last-name" type="text" class="validate" value="{{ user.lastName }}">
                         <label for="input-last-name">Last Name</label>
                     </div>
                 </div>
@@ -62,8 +68,9 @@
         </p>
     </div>
     <div class="modal-footer">
-        <a id="profile-img-btn" href="#!" class="waves-effect waves-green btn">Submit</a>
+        <a id="profile-img-btn" href="javascript:;" class="waves-effect waves-green btn">Submit</a>
     </div>
 </div>
 
 <canvas id="img-cropper"></canvas>
+{% endblock %}
