@@ -309,4 +309,4 @@
     })
 
     socket.on('updateChannels')
-})();
+})()

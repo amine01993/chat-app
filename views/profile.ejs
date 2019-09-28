@@ -2,28 +2,13 @@
 
 <% block('title', 'Profile') %>
 
-<% stylesheet('cropper/cropper.css') %>
+<% stylesheet('css/profile.css') %>
+<% stylesheet('croppr/croppr.css') %>
 
-<% block('scriptsLib', '<script src="cropper/cropper.js"></script>') %>
+<% script('js/profile.js') %>
 
-<style>
-    .profile-container {
-        width: 450px;
-        margin: auto;
-    }
-    .profile-img {
-        width: 350px;
-        margin: auto;
-        display: block;
-        cursor: pointer;
-    }
-    #input-profile-img {
-        display: none;
-    }
-    .raw-profile-img-container {
-        text-align: center;
-    }
-</style>
+<% block('scriptsLib', '<script src="croppr/croppr.js"></script>') %>
+
 <div class="container">
     <div class="card-panel profile-container">
         <div class="row">
@@ -80,116 +65,5 @@
         <a id="profile-img-btn" href="#!" class="waves-effect waves-green btn">Submit</a>
     </div>
 </div>
-    
-<script>
-    
-    const editNameBtn = document.getElementById('edit-name-btn')
-    const saveNameBtn = document.getElementById('save-name-btn')
-    const infoName = document.querySelector('.info-name')
-    const infoNameText = infoName.querySelector('.info-name-text')
-    const inputName = document.querySelector('.input-name')
-    const inputFirstName = inputName.querySelector('#input-first-name')
-    const inputLastName = inputName.querySelector('#input-last-name')
-    editNameBtn.addEventListener('click', event => {
-        infoName.classList.add('hide')
-        inputName.classList.remove('hide')
-        editNameBtn.classList.add('hide')
-        saveNameBtn.classList.remove('hide')
-    })
-    saveNameBtn.addEventListener('click', event => {
-        let firstName = inputFirstName.value, lastName = inputLastName.value
-        fetch('/profileName', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ firstName, lastName })
-        })
-        .then(res => res.json())
-        .then(data => {
-            console.log(data)
-            if(data.success) {
-                infoNameText.innerText = data.firstName + ' ' + data.lastName
-                inputFirstName.value = data.firstName
-                inputLastName.value = data.lastName
 
-                infoName.classList.remove('hide')
-                inputName.classList.add('hide')
-                editNameBtn.classList.remove('hide')
-                saveNameBtn.classList.add('hide')
-                // toast
-            }
-            if(data.error) {
-
-            }
-        })
-        .catch(err => {
-            console.log(err)
-        })
-    })
-
-    const profileImg = document.querySelector('.profile-img')
-    const inputProfileImg = document.getElementById('input-profile-img')
-    const modalProfileImg = document.getElementById('modal-profile-img')
-    const profileImgBtn = document.getElementById('profile-img-btn')
-    const rawProfileImg = document.getElementById('raw-profile-img')
-    let modalInstanceProfileImg, cropper
-    document.addEventListener('DOMContentLoaded', () => {
-        const options = {}
-        const elems = document.querySelectorAll('.modal')
-        const instances = M.Modal.init(elems, options)
-
-        modalInstanceProfileImg = M.Modal.getInstance(modalProfileImg)
-    })
-
-    profileImg.addEventListener('click', event => {
-        inputProfileImg.click()
-    })
-    inputProfileImg.addEventListener('change', event => {
-        console.log(inputProfileImg.files)
-        if (inputProfileImg.files && inputProfileImg.files[0]) {
-            console.log('true')
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                console.log(e.target.result)
-                rawProfileImg.src = e.target.result
-
-                cropper = new Cropper(rawProfileImg, {
-                    aspectRatio: 1,
-                    crop(_event) {
-                        console.log(_event.detail)
-                    },
-                })
-
-                modalInstanceProfileImg.open()
-            }
-            reader.readAsDataURL(inputProfileImg.files[0])
-        }
-    })
-    profileImgBtn.addEventListener('click', event => {
-        fetch('/profileImage', {
-            method: 'post',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                image: cropper.getCroppedCanvas().toDataURL(inputProfileImg.files[0].type), // 'image/jpeg'
-                name: inputProfileImg.files[0].name,
-                type: inputProfileImg.files[0].type
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            console.log(data)
-            if(data.success) {
-                profileImg.src = data.imageUrl
-            }
-            modalInstanceProfileImg.close()
-        })
-        .catch(err => {
-            console.log(err)
-        })
-    })
-
-
-</script>
+<canvas id="img-cropper"></canvas>
