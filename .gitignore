@@ -2,8 +2,9 @@ node_modules
 .vscode
 chat-template
 sessions
-socket.send.doc.js
+socket.cheat.sheet.js
 test.js
 package-lock.json
 public/img/*
 tasks.txt
+emojione-template

@@ -75,18 +75,30 @@
 
 .chat-input .chat-input-bar {
     display: flex;
+    max-height: 72px;
+    overflow-y: scroll;
 }
 
 .chat-input form {
     margin-bottom: 0;
 }
 
-.chat-input form input[type="text"],
-.chat-input textarea {
+.chat-input .editable {
     border: 0;
     margin: 0;
     padding: 24px;
     line-height: 24px;
+    height: 72px;
+    width: 100%;
+    word-break: break-all;
+}
+
+[contenteditable=true]:empty:before {
+    color: #ccc;
+    content: attr(placeholder);
+    display: block;
+    /* For Firefox */
+    white-space: pre-wrap;
 }
 
 .chat-input button[type="submit"] {

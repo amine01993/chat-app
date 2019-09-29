@@ -62,7 +62,7 @@
         const messageElem = parser.parseFromString(messageTemplate, 'text/html').body.firstChild
         
         const textMessage = messageElem.querySelector('.message')
-        textMessage.innerText = msg
+        textMessage.innerHTML = msg
         textMessage.classList.add('tooltipped')
         textMessage.setAttribute('data-tooltip', moment(new Date(created_at)).format('MMM D, YYYY [at] HH:mm'))
 
@@ -129,6 +129,64 @@
         )
     }
 
+    function initMessageInput() {
+        emojione.ascii = true
+
+        const combination = new RegExp(emojione.regAscii.source + '|' + emojione.regShortNames.source, 'g')
+
+        function emojify(elArg) {
+
+            function placeCaretAtEnd(el, moveTo) {
+                el.focus()
+                if (typeof window.getSelection != "undefined" &&
+                    typeof document.createRange != "undefined") {
+                    const range = document.createRange()
+                    range.setStartBefore(moveTo)
+                    range.collapse(false)
+                    const sel = window.getSelection()
+                    sel.removeAllRanges()
+                    sel.addRange(range)
+                }
+            }
+
+            elArg.childNodes.forEach(node => {
+
+                const matches = node.textContent.match(combination)
+                let emo = null
+                if (matches) {
+                    for(let i = 0; i < matches.length; i++) {
+                        const match = matches[i]
+                        const start = node.textContent.indexOf(match)
+                        const end = node.textContent.indexOf(match) + match.length
+            
+                        const stringToConvert = node.textContent.slice(start, end)
+            
+                        const temp_container = document.createElement('div')
+                        temp_container.innerHTML = emojione.toImage(stringToConvert)
+            
+                        emo = temp_container.querySelector('.emojione') || temp_container.firstChild
+            
+                        const beforeText = document.createTextNode(node.textContent.slice(0, start))
+                        const afterText = document.createTextNode(node.textContent.slice(end))
+            
+                        node.parentNode.insertBefore(beforeText, node)
+                        node.parentNode.insertBefore(afterText, node.nextSibling)
+                        node.parentNode.replaceChild(emo, node)
+
+                        node = afterText
+                    }
+                    if(emo) {
+                        placeCaretAtEnd(elArg, emo.nextSibling)
+                    }
+                }
+            })
+        }
+
+        msgInput.addEventListener('input', () => {
+            emojify(msgInput)
+        })
+    }
+
     socket.on('channels', channels => {
         console.log(channels)
 
@@ -154,7 +212,7 @@
                     subtitle += users.find(u => u.user_id == sender_id).username
                 }
                 subtitle += body
-                channelItem.querySelector('.sub-title').innerText = subtitle
+                channelItem.querySelector('.sub-title').innerHTML = subtitle
                 channelItem.querySelector('.last-msg-date').innerText = moment(new Date(created_at)).format('DD/MM/YYYY HH:mm')
             }
 
@@ -167,14 +225,14 @@
                 channelItem.querySelector('.badged-circle').classList.add('group-picture')
             }
             otherUsers.slice(0, 2).forEach((u, i, arr) => {
-                const {chatPicture, gender} = u
+                const {chatPicture, sex} = u
                 if(i == 0) {
                     const img = channelItem.querySelector('img.circle')
-                    img.src = getChatPicture(chatPicture, gender)
+                    img.src = getChatPicture(chatPicture, sex)
                 }
                 else {
                     const img = document.createElement('img')
-                    img.src = getChatPicture(chatPicture, gender)
+                    img.src = getChatPicture(chatPicture, sex)
                     img.classList.add('circle')
                     img.alt = 'avatar'
                     channelItem.querySelector('.badged-circle').appendChild(img)
@@ -251,14 +309,14 @@
     let selected_channel_uuid = null
     msgForm.addEventListener('submit', (event) => {
         event.preventDefault()
-        console.log('socket client emit on ', selected_channel_uuid, msgInput.value)
+        console.log('socket client emit on ', selected_channel_uuid, msgInput.innerHTML)
 
-        if(selected_channel_uuid && msgInput.value.trim() != '') {
+        if(selected_channel_uuid && msgInput.innerHTML.trim() != '') {
             socket.emit('handleMessage', {
                 channel_uuid: selected_channel_uuid,
-                value: msgInput.value,
+                value: msgInput.innerHTML,
             })
-            msgInput.value = ''
+            msgInput.innerHTML = ''
         }
     })
 
@@ -312,4 +370,6 @@
             channel_uuid: selected_channel_uuid
         })
     })
+
+    initMessageInput()
 })()

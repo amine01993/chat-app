@@ -4,11 +4,13 @@
 
 {% block stylesheets %}
   <link rel="stylesheet" href="css/chat.css">
+  <link rel="stylesheet" href="emojione/emojione.min.css">
 {% endblock %}
 
 {% block scriptsLib %}
   <script src="/socket.io/socket.io.js"></script>
   <script src="moment/moment.min.js"></script>
+  <script src="emojione/emojione.min.js"></script>
 {% endblock %}
 {% block scripts %}
   <script src="js/chat.js"></script>
@@ -56,8 +58,10 @@
 
         <div class="chat-input">
           <form action="" id="message-form">
-            <div class="chat-input-bar">
-              <textarea id="message-input" class="materialize-textarea" style="height: 72px;"></textarea>
+            <div class="chat-input-bar custom-scrollbar">
+              <!-- <textarea id="message-input" class="materialize-textarea" style="height: 72px;"></textarea> -->
+              <div id="message-input" class="editable" contenteditable="true" placeholder=''></div>
+
               <button type="submit">
                 <i class="material-icons">send</i>
               </button>
