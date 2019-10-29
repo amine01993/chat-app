@@ -5,6 +5,7 @@ const sharp = require('sharp')
 const http = require('http').createServer(app)
 const nunjucks = require('nunjucks')
 const io = require('socket.io')(http)
+const SocketIOFile = require('socket.io-file')
 const util = require('util')
 const compression = require('compression')
 const uuidv4 = require('uuid/v4')
@@ -42,7 +43,8 @@ app.use(express.static(path.join(__dirname, '/public')))
 
 nunjucks.configure('views', {
     autoescape: true,
-    express: app
+    express: app,
+    noCache: true
 });
 
 app.use(bodyParser.json({
@@ -103,6 +105,11 @@ passport.deserializeUser(async ({
 
 app.use(passport.initialize())
 app.use(passport.session())
+
+
+app.get('/socket.io-file-client.js', (req, res, next) => {
+	return res.sendFile(__dirname + '/node_modules/socket.io-file-client/socket.io-file-client.js')
+})
 
 app.get('/', auth.isAuthorized, (req, res) => {
     res.render('chat.html', {user: req.user})
@@ -174,7 +181,7 @@ app.post('/register', [
     })
 ], async (req, res) => {
     // Finds the validation errors in this request and wraps them in an object with handy functions
-    const errors = validationResult(req);
+    const errors = validationResult(req)
 
     if (!errors.isEmpty()) {
         return res.render('register.html', {errors: errors.mapped(), data: req.body})
@@ -206,7 +213,6 @@ app.post('/register', [
     passport.authenticate('local')(req, res, () => {
         res.redirect('/profile')
     })
-    // return res.redirect('/login')
 })
 
 app.get('/profile', auth.isAuthorized, (req, res) => {
@@ -245,7 +251,55 @@ app.post('/profileImage', auth.isAuthorized, async (req, res) => {
 
 io.on('connection', async (socket) => {
     socket.user_id = socket.handshake.session.passport.user.id
-    
+
+    const uploader = new SocketIOFile(socket, {
+        uploadDir: 'public/attachments',
+        accepts: [],
+        // 5 MB. default is undefined(no limit)
+        maxFileSize: 5 * 1024 * 1024,
+        // 10 KB. default is 10240(1KB)
+        chunkSize: 10 * 1024,
+        // delay of each transmission, higher value saves more cpu resources, lower upload speed. default is 0(no delay)
+        transmissionDelay: 0,
+        // overwrite file if exists, default is true.
+        overwrite: true,
+        // Function rename: Rename the file before upload starts. Return value is use for the name. This option is useful to upload file without overwriting concerns.
+        rename(filename, fileInfo) {
+            const file = path.parse(filename)
+            return `${uuidv4()}${file.ext}`;
+        }
+	})
+	uploader.on('start', (fileInfo) => {
+		console.log('Start uploading')
+		console.log(fileInfo)
+	})
+	uploader.on('stream', (fileInfo) => {
+		console.log(`${fileInfo.wrote} / ${fileInfo.size} byte(s)`)
+	})
+	uploader.on('complete', async (fileInfo) => {
+		console.log('Upload Complete.')
+        console.log(fileInfo)
+        const msgFileId = (await db('message_files').insert({
+            fileName: fileInfo.name,
+            originalFileName: fileInfo.originalFileName,
+            type: fileInfo.mime
+        }).returning('id'))[0]
+
+        socket.emit('uploadComplete', {
+            id: msgFileId,
+            imageUrl: `attachments/${fileInfo.name}`,
+            fileName: fileInfo.name,
+            originalFileName: fileInfo.originalFileName,
+            type: fileInfo.mime
+        })
+	})
+	uploader.on('error', (err) => {
+		console.log('Error!', err)
+	})
+	uploader.on('abort', (fileInfo) => {
+		console.log('Aborted: ', fileInfo)
+	})
+
     const currentUser = await db.select('id AS user_id', 'username', 'chatPicture', 'sex')
         .from('users').where('id', '=', socket.user_id).first()
     const channels = await getChannels(currentUser)
@@ -269,7 +323,6 @@ io.on('connection', async (socket) => {
     console.log('a user connected, ' + socket.user_id + ', users: ' + util.inspect(Object.keys(io.sockets.clients().connected).length))
 
     socket.on('handleMessage', async (data) => {
-        console.log('handleMessage', util.inspect(data))
 
         // insert message
         const message = await db('messages').insert({
@@ -277,6 +330,18 @@ io.on('connection', async (socket) => {
             sender_id: socket.handshake.session.passport.user.id,
             channel_uuid: data.channel_uuid
         }).returning(['id','created_at'])
+
+        // update message attachment files
+        let files = []
+        if(data.file_ids) {
+            files = await db('message_files')
+            .whereIn('id', data.file_ids.split(','))
+            .update({
+                message_id: message[0].id
+            })
+            .returning(['fileName', 'type', 'originalFileName'])
+        }
+
         // insert metadatas
         const users = await db.select('user_id').from('channel_user').where('channel_uuid', '=', data.channel_uuid)
         users.forEach(async ({user_id}) => {
@@ -295,13 +360,18 @@ io.on('connection', async (socket) => {
                 user_id: socket.user_id,
                 chatPicture: currentUser.chatPicture,
                 sex: currentUser.sex,
-                created_at: message[0].created_at
+                created_at: message[0].created_at,
+                files
             },
         });
     })
 
+    socket.on('deleteAttachment', async ({id}) => {
+        const name  = (await db('message_files').where('id', id).del().returning('fileName'))[0]
+        socket.emit('deletedAttachment', {id, name})
+    })
+
     socket.on('chat', async (data) => {
-        console.log('chat', socket.handshake.session.passport.user.id, util.inspect(data))
 
         const uuid = await db.select('uuid').from('channels').where('uuid', '=', data.channel_uuid).first()
         
@@ -335,11 +405,18 @@ io.on('connection', async (socket) => {
 
         if (channelExist) {
             messages = await db.select('m.body AS msg', 'u.id AS user_id', 'u.chatPicture', 'u.sex', 'm.created_at')
+                .select(db.raw(
+                    `COALESCE(json_agg(
+                        json_build_object('fileName', mf."fileName", 'type', mf.type, 'originalFileName', mf."originalFileName"
+                    )) FILTER (WHERE mf."fileName" IS NOT NULL), '[]') AS files`
+                ))
                 .from('messages AS m')
                 .innerJoin('users AS u', 'u.id', 'm.sender_id')
                 .leftJoin('message_metadatas AS mm', 'mm.message_id', 'm.id')
+                .leftJoin('message_files AS mf', 'mf.message_id', 'm.id')
                 .where('m.channel_uuid', '=', data.channel_uuid)
                 .andWhere('mm.participant_id', '=', socket.handshake.session.passport.user.id)
+                .groupByRaw('m.body, u.id, u."chatPicture", u.sex, m.created_at')
                 .orderBy('m.created_at')
         }
 
@@ -471,7 +548,6 @@ io.on('connection', async (socket) => {
             lastConnection
         })
     })
-
 })
 
 http.listen(3000, () => {

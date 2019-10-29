@@ -9,6 +9,8 @@
 
 {% block scriptsLib %}
   <script src="/socket.io/socket.io.js"></script>
+  <script src="socket.io-file-client.js"></script>
+
   <script src="moment/moment.min.js"></script>
   <script src="emojione/emojione.min.js"></script>
 {% endblock %}
@@ -18,11 +20,14 @@
 
 {% block body %}
 <input type="hidden" value="{{ user.id }}" id="connected-user">
+<div style="display: none;">
+    <input type="file" id="upload-file-input" multiple>
+</div>
 
 <div class="chat-app">
-  <div class="flex-container">
+  <div class="chat-container">
 
-    <div class="flex-item">
+    <div class="chat-part">
 
       <div class="card" id="chat-card">
         <div class="card-content">
@@ -37,8 +42,6 @@
             <i class="material-icons">group_add</i>
           </a>
         </div>
-
-        <div class="divider"></div>
 
         <div class="card-content chat-content custom-scrollbar">
             <div class="add-group-container z-depth-1 hide">
@@ -58,13 +61,23 @@
 
         <div class="chat-input">
           <form action="" id="message-form">
-            <div class="chat-input-bar custom-scrollbar">
-              <!-- <textarea id="message-input" class="materialize-textarea" style="height: 72px;"></textarea> -->
-              <div id="message-input" class="editable" contenteditable="true" placeholder=''></div>
+            <div class="chat-input-bar">
+              <div id="message-attachments">
+                <ul class="message-attachments-list custom-scrollbar-horizontal">
+                </ul>
+              </div>
+              
+              <div id="message-input" class="editable custom-scrollbar" contenteditable="true" placeholder='Write a message...'></div>
 
-              <button type="submit">
-                <i class="material-icons">send</i>
-              </button>
+              <div class="chat-input-actions">
+                <a href="javascript:;" id="upload-file" class="chat-input-action btn-floating blue" title="Upload file">
+                  <i class="material-icons">attach_file</i>
+                </a>
+
+                <a href="javascript:;" id="send-message" class="chat-input-action btn-floating blue" title="Send message">
+                  <i class="material-icons">send</i>
+                </a>
+              </div>
             </div>
           </form>
         </div>
@@ -72,7 +85,7 @@
 
     </div>
 
-    <div class="flex-item">
+    <div class="chat-part">
 
       <div class="card">
         <div class="card-content">

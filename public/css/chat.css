@@ -1,27 +1,20 @@
-.flex-container {
-    display: flex;
+.chat-container {
     height: 100vh;
+    display: grid;
+    grid-template-columns: calc(100vw - 320px) 320px;
 }
 
-.flex-container>.flex-item {
+.chat-container>.chat-part {
     height: 100%;
 }
 
-.flex-container>.flex-item:first-child {
-    flex-grow: 12;
-}
-
-.flex-container>.flex-item:last-child {
-    flex-basis: 320px;
-}
-
 .chat-content.card-content {
-    height: calc(100% - 84px - 78px);
     overflow-y: scroll;
 }
 
 .chat-app .card .card-content:not(.chat-content) {
     height: 88px;
+    border-bottom: 1px solid #e0e0e0;
 }
 
 .chat-wrapper .chat-message {
@@ -74,9 +67,13 @@
 }
 
 .chat-input .chat-input-bar {
-    display: flex;
-    max-height: 72px;
+    display: grid;
+    grid-template-columns: 1fr;
     overflow-y: scroll;
+}
+
+.chat-input .chat-input-actions {
+    text-align: right;
 }
 
 .chat-input form {
@@ -86,11 +83,114 @@
 .chat-input .editable {
     border: 0;
     margin: 0;
-    padding: 24px;
+    padding: 10px;
     line-height: 24px;
-    height: 72px;
+    max-height: 180px;
     width: 100%;
     word-break: break-all;
+    overflow-y: scroll;
+}
+
+.message + .message-files {
+    margin-top: 10px;
+}
+
+.message .download-file {
+    color: white;
+    text-decoration: underline;
+}
+
+.message .download-image {
+    max-width: 300px;
+}
+
+.message-attachments-list {
+    white-space: nowrap;
+    overflow-x: auto;
+    width: calc(100vw - 320px);
+    margin: 0;
+    display: flex;
+}
+
+.message-attachment-item {
+    display: inline-block;
+    margin: 14px;
+}
+.message-attachment-item:not(:first-child) {
+    margin-left: 0;
+}
+.img-attachment {
+    width: 120px;
+}
+.file-attachment {
+    width: 200px;
+}
+
+.message-attachment-filename {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 92px;
+    word-break: none;
+    white-space: nowrap;
+    display: inline-block;
+    font-size: 13px;
+    color: rgb(153, 153, 153);
+}
+
+.message-attachment-preview {
+    position: relative;
+}
+
+.message-attachment-preview .close-preview {
+    position: absolute;
+    right: 0;
+    color: #e0e0e0;
+    transition: ease-in color .3s;
+}
+.message-attachment-preview .close-preview:hover {
+    color: #9e9e9e;
+}
+
+.message-attachment-preview img {
+    height: 120px;
+    margin: auto;
+    display: block;
+    max-width: 120px;
+}
+.message-attachment-preview .close-preview i {
+    font-size: 16px;
+}
+
+.file-preview {
+    height: 80px;
+    display: grid;
+    grid-template-columns: 60px 140px;
+    border: 1px solid #e8e8e8;
+}
+.file-preview > div:first-child {
+    position: relative;
+}
+.file-preview > div:first-child i {
+    font-size: 45px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+}
+.file-preview > div:nth-child(2) {
+    padding: 10px;
+}
+.file-type-preview {
+    margin: 0;
+    font-size: 22px;
+    text-transform: uppercase;
+}
+.file-name-preview {
+    margin: 0;
+    font-size: 16px;
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
 
 [contenteditable=true]:empty:before {
@@ -99,16 +199,6 @@
     display: block;
     /* For Firefox */
     white-space: pre-wrap;
-}
-
-.chat-input button[type="submit"] {
-    padding: 0 16px;
-    height: 72px;
-    cursor: pointer;
-}
-
-.chat-input button[type="submit"] i.material-icons {
-    color: #448AFF;
 }
 
 button {
@@ -239,6 +329,11 @@ p {
     right: 5px;
 }
 
+#chat-card {
+    display: grid;
+    grid-template-rows: 88px calc(100vh - 88px - 1px - 84px) 84px;
+}
+
 #chat-card .card-content {
     position: relative;
     z-index: 1;
@@ -281,18 +376,32 @@ p {
 .custom-scrollbar::-webkit-scrollbar {
     width: 10px;
 }
-
 .custom-scrollbar::-webkit-scrollbar-track {
     background: #e0e0e0;
     border-radius: 10px;
 }
-
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background: #bdbdbd;
     opacity: .7;
     border-radius: 10px;
 }
-
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #9e9e9e;
+}
+
+.custom-scrollbar-horizontal::-webkit-scrollbar {
+    height: 10px;
+    min-height: 0px;
+}
+.custom-scrollba-horizontalr::-webkit-scrollbar-track {
+    background: #e0e0e0;
+    border-radius: 10px;
+}
+.custom-scrollbar-horizontal::-webkit-scrollbar-thumb {
+    background: #bdbdbd;
+    opacity: .7;
+    border-radius: 10px;
+}
+.custom-scrollbar-horizontal::-webkit-scrollbar-thumb:hover {
     background: #9e9e9e;
 }

@@ -1,8 +1,11 @@
 (function () {
 
     const socket = io()
+    const uploader = new SocketIOFileClient(socket)
+
     const parser = new DOMParser()
     const connectedUserId = document.getElementById('connected-user').value
+    const uploads = {}
 
     const channelItemTemplate = `<li class="collection-item avatar">
         <div class="badged-circle">
@@ -20,18 +23,56 @@
     const addGroupContainer = chatCard.querySelector('.add-group-container')
     const addGroupAction = document.getElementById('add-group-action')
     const msgForm = chatCard.querySelector('#message-form')
+    const msgSend = chatCard.querySelector('#send-message')
     const msgInput = chatCard.querySelector('#message-input')
+    const uploadFile = chatCard.querySelector('#upload-file')
+    const uploadFileInput = document.getElementById('upload-file-input')
+    const attachmentFiles = chatCard.querySelector('.message-attachments-list')
 
     const messageTemplate = `<div class="chat-message">
         <img class="circle" src="//cdn.shopify.com/s/files/1/1775/8583/t/1/assets/portrait1.jpg?0" alt="avatar">
-        <span class="message">
+        <div class="message">
             Lo-fi you probably haven't heard of them etsy leggings raclette kickstarter four dollar toast. 
             Raw denim
-        </span>
+        </div>
     </div>`
-    
+
     const chatDateTemplate = `<div class="chat-date">
     </div>`
+
+    const attachmentUploadTemplate = `<li class="message-attachment-item">
+        <i class="material-icons">insert_drive_file</i>
+        <div class="message-attachment-filename" title="file name 0123.jpg">
+            file name 0123.jpg
+        </div>
+        <div class="progress">
+            <div class="determinate" style="width: 0%"></div>
+        </div>
+    </li>`
+
+    const attachmentImagePreviewTemplate = `<li class="message-attachment-item img-attachment">
+        <div class="message-attachment-preview">
+            <a href="javascript:;" class="close-preview">
+                <i class="material-icons">close</i>
+            </a>
+            <img src="img/096a4729-61a8-4aee-8970-574032421aa9-chat.webp" alt="IMAGE">
+        </div>
+    </li>`
+
+    const attachmentFilePreviewTemplate = `<li class="message-attachment-item file-attachment">
+        <div class="message-attachment-preview file-preview">
+            <div class="blue">
+                <i class="material-icons">insert_drive_file</i>
+            </div>
+            <div>
+                <h4 class="file-type-preview">html</h4>
+                <p class="file-name-preview" title="projectdata.html">projectData-werewr.html</p>
+            </div>
+            <a href="javascript:;" class="close-preview">
+                <i class="material-icons">close</i>
+            </a>
+        </div>
+    </li>`
 
     const channelsConnectionStatus = [] // {channel_uuid, connected}
 
@@ -49,7 +90,7 @@
             : `default-img/${gender == 'female' ? 'default-female-icon.png' : 'default-icon.png'}`
     }
 
-    function addMessage({user_id, msg, chatPicture, sex, created_at}) {
+    function addMessage({user_id, msg, files, chatPicture, sex, created_at}) {
 
         const dateMoment = moment(new Date(created_at))
         if(prev_day == null || prev_day != dateMoment.format('DDMMYYYY')) {
@@ -59,22 +100,47 @@
             chatHistoryList.appendChild(dayDate)
         }
 
+        // txt message
         const messageElem = parser.parseFromString(messageTemplate, 'text/html').body.firstChild
-        
         const textMessage = messageElem.querySelector('.message')
         textMessage.innerHTML = msg
         textMessage.classList.add('tooltipped')
         textMessage.setAttribute('data-tooltip', moment(new Date(created_at)).format('MMM D, YYYY [at] HH:mm'))
 
+        const fileList = parser.parseFromString(`<div class="message-files"></div>`, 'text/html').body.firstChild
+        files.forEach(file => {
+            if(file) {
+                if(/^image/i.test(file.type)) {
+                    const imgElem = parser.parseFromString(`<div class='message'>
+                        <img class="download-image" src="${'attachments/' + file.fileName}" alt="${file.originalFileName}">
+                    </div>`, 'text/html').body.firstChild
+                    fileList.appendChild(imgElem)
+                }
+                else {
+                    const fileElem = parser.parseFromString(`<div class='message'>
+                        <a href="${'attachments/' + file.fileName}" class="download-file" target="_blank">
+                            ${file.originalFileName}
+                        </a>
+                    </div>`, 'text/html').body.firstChild
+                    fileList.appendChild(fileElem)
+                }
+            }
+        })
+        fileList.classList.add('tooltipped')
+        fileList.setAttribute('data-tooltip', moment(new Date(created_at)).format('MMM D, YYYY [at] HH:mm'))
+
         if(user_id == connectedUserId) {
             messageElem.classList.add('right')
             textMessage.setAttribute('data-position', 'left')
+            fileList.setAttribute('data-position', 'left')
         }
         else {
             textMessage.setAttribute('data-position', 'right')
+            fileList.setAttribute('data-position', 'right')
         }
 
         M.Tooltip.init(textMessage, {})
+        M.Tooltip.init(fileList, {})
 
         if(user_id == prev_user_id) {
             messageElem.classList.add('coalesce')
@@ -85,6 +151,11 @@
         }
         prev_user_id = user_id
         
+        if(files.length > 0) messageElem.appendChild(fileList)
+        if(msg == '') {
+            messageElem.removeChild(textMessage)
+        }
+
         chatHistoryList.appendChild(messageElem)
     }
 
@@ -130,6 +201,7 @@
     }
 
     function initMessageInput() {
+        // Emojis
         emojione.ascii = true
 
         const combination = new RegExp(emojione.regAscii.source + '|' + emojione.regShortNames.source, 'g')
@@ -184,7 +256,66 @@
 
         msgInput.addEventListener('input', () => {
             emojify(msgInput)
+            resizeChatLayout()
         })
+
+        // File attachments upload
+        uploadFile.addEventListener('click', event => {
+            uploadFileInput.click()
+        })
+
+        uploadFileInput.addEventListener('change', event => {
+            console.log(uploadFileInput.files)
+            if (uploadFileInput.files && uploadFileInput.files.length > 0) {
+                console.log('true')
+                const uploadIds = uploader.upload(uploadFileInput, {
+                    data: { /* Arbitrary data... */ }
+                })
+                // setTimeout(function() {
+                //     uploader.abort(uploadIds[0]);
+                //     console.log(uploader.getUploadInfo());
+                // }, 1000);            
+            }
+        })
+
+        uploader.on('start', function(fileInfo) {
+            console.log('Start uploading', fileInfo)
+
+            const attachmentUpload = parser.parseFromString(attachmentUploadTemplate, 'text/html').body.firstChild
+            const msgAttachFilename = attachmentUpload.querySelector('.message-attachment-filename')
+            msgAttachFilename.innerText = fileInfo.name
+            msgAttachFilename.setAttribute('title', fileInfo.name)
+
+            uploads[fileInfo.uploadId] = {
+                elem: attachmentUpload,
+                temp: true
+            }
+
+            attachmentFiles.appendChild(attachmentUpload)
+            resizeChatLayout()
+        })
+        uploader.on('stream', function(fileInfo) {
+            console.log('Streaming... sent ' + fileInfo.sent + ' bytes.')
+            uploads[fileInfo.uploadId].elem.querySelector('.determinate').style.width = `${fileInfo.sent / fileInfo.size}%`
+        })
+        uploader.on('complete', function(fileInfo) {
+            console.log('Upload Complete', fileInfo)
+
+            uploads[fileInfo.uploadId].elem.querySelector('.determinate').style.width = `100%`
+            uploads[fileInfo.name] = uploads[fileInfo.uploadId]
+            delete uploads[fileInfo.uploadId]
+        })
+        uploader.on('error', function(err) {
+            console.log('Error!', err)
+        })
+        uploader.on('abort', function(fileInfo) {
+            console.log('Aborted: ', fileInfo)
+            delete uploads[fileInfo.uploadId]
+        })        
+    }
+
+    function resizeChatLayout() {
+        chatCard.style.gridTemplateRows = `88px calc(100vh - 88px - 1px - ${msgForm.offsetHeight}px) ${msgForm.offsetHeight}px`
     }
 
     socket.on('channels', channels => {
@@ -306,17 +437,71 @@
         updateAddGroup(acUsers)
     })
 
-    let selected_channel_uuid = null
-    msgForm.addEventListener('submit', (event) => {
-        event.preventDefault()
-        console.log('socket client emit on ', selected_channel_uuid, msgInput.innerHTML)
+    socket.on('uploadComplete', ({id, imageUrl, originalFileName, fileName, type}) => {
+        // show preview (images, other files)
+        let attachmentPreview
+        if(/^image/i.test(type)) {
+            attachmentPreview = parser.parseFromString(attachmentImagePreviewTemplate, 'text/html').body.firstChild
+            const previewImg = attachmentPreview.querySelector('img')
+            previewImg.src = imageUrl
+            previewImg.setAttribute('alt', originalFileName)
+            attachmentPreview.setAttribute('data-id', id)
+        }
+        else {
+            attachmentPreview = parser.parseFromString(attachmentFilePreviewTemplate, 'text/html').body.firstChild
+            const previewFileName = attachmentPreview.querySelector('.file-name-preview')
+            previewFileName.setAttribute('title', originalFileName)
+            previewFileName.textContent = originalFileName
+            attachmentPreview.querySelector('.file-type-preview').textContent = originalFileName.split('.').pop()
+            attachmentPreview.setAttribute('data-id', id)
+        }
 
-        if(selected_channel_uuid && msgInput.innerHTML.trim() != '') {
+        // replace progress by preview
+        attachmentFiles.replaceChild(attachmentPreview, uploads[fileName].elem)
+        uploads[fileName] = attachmentPreview
+        resizeChatLayout()
+
+        // set remove file event
+        attachmentPreview.querySelector('.close-preview').addEventListener('click', event => {
+            console.log('close preview', originalFileName)
+            attachmentPreview.style.opacity = .75
+            socket.emit('deleteAttachment', {id})
+        })
+    })
+
+    socket.on('deletedAttachment', ({id, name}) => {
+        if(uploads.hasOwnProperty(name)) {
+            attachmentFiles.removeChild(uploads[name])
+            delete uploads[name]
+            resizeChatLayout()
+        }
+    })
+
+    let selected_channel_uuid = null
+    msgSend.addEventListener('click', (event) => {
+        event.preventDefault()
+        console.log('socket client emit on ', selected_channel_uuid, msgInput.innerHTML, uploads)
+
+        let uploadsOver = true, file_ids = []
+        for (const [, elem] of Object.entries(uploads)) {
+            if (elem.hasOwnProperty('temp')) {
+                uploadsOver = false
+                break
+            }
+            else {
+                file_ids.push(elem.dataset.id)
+            }
+        }
+
+        if(selected_channel_uuid && (msgInput.innerHTML.trim() != '' || uploadsOver)) {
             socket.emit('handleMessage', {
                 channel_uuid: selected_channel_uuid,
                 value: msgInput.innerHTML,
+                file_ids: file_ids.length == 0 ? null : file_ids.join(',')
             })
             msgInput.innerHTML = ''
+            attachmentFiles.innerHTML = ''
+            for (var name in uploads) delete uploads[name]
         }
     })
 
@@ -333,7 +518,7 @@
             return elem.getAttribute('data-users').split('-').includes(user_id.toString())
         })
         .map(elem => {
-            console.log(elem)
+            // console.log(elem)
             const elembc = elem.querySelector('.badged-circle')
 
             if(connected) {
