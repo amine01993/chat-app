@@ -254,8 +254,19 @@
             })
         }
 
+        function removeOuterStyle(html) {
+            for(const child of html.children) {
+                if(!['emojione'].some(c => child.classList.contains(c))) {
+                    child.setAttribute('style', '')
+                    child.className = ''
+                }
+                removeOuterStyle(child)
+            }
+        }
+
         msgInput.addEventListener('input', () => {
             emojify(msgInput)
+            removeOuterStyle(msgInput)
             resizeChatLayout()
         })
 

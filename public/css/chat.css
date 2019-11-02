@@ -337,10 +337,10 @@ p {
 #chat-card .card-content {
     position: relative;
     z-index: 1;
+    margin-right: 17px;
 }
 
 #chat-card .card-content .card-title {
-    margin-bottom: 5px;
     margin-bottom: 5px;
     white-space: nowrap;
     overflow: hidden;
