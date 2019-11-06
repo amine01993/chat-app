@@ -7,15 +7,6 @@
     const connectedUserId = document.getElementById('connected-user').value
     const uploads = {}
 
-    const channelItemTemplate = `<li class="collection-item avatar">
-        <div class="badged-circle">
-            <img class="circle" alt="avatar">
-        </div>
-        <div class="title"></div>
-        <div class="sub-title"></div>
-        <div class="last-msg-date"></div>
-    </li>`
-
     const channelsList = document.getElementById('channels-list')
     const chatCard = document.getElementById('chat-card')
     const chatWith = chatCard.querySelector('.card-title')
@@ -29,50 +20,153 @@
     const uploadFileInput = document.getElementById('upload-file-input')
     const attachmentFiles = chatCard.querySelector('.message-attachments-list')
 
-    const messageTemplate = `<div class="chat-message">
-        <img class="circle" src="//cdn.shopify.com/s/files/1/1775/8583/t/1/assets/portrait1.jpg?0" alt="avatar">
-        <div class="message">
-            Lo-fi you probably haven't heard of them etsy leggings raclette kickstarter four dollar toast. 
-            Raw denim
-        </div>
-    </div>`
+    const parse = html => parser.parseFromString(html, 'text/html').body.firstChild
+    
+    const renderChannelItem = ({users, channel_uuid, body, sender_id, connectionStatus, created_at}) => {
+        const otherUsers = users.filter(u => users.length == 1 || u.user_id != connectedUserId)
+        const title = otherUsers.map(u => u.username).join(', ')
+        
+        let subTitle = '', lastMsgDate = ''
+        if(body) {
+            if(users.length > 1 && sender_id == connectedUserId) {
+                subTitle += 'You: '
+            }
+            else if(users.length > 2) {
+                subTitle += users.find(u => u.user_id == sender_id).username
+            }
+            subTitle += body
+            lastMsgDate = moment(new Date(created_at)).format('DD/MM/YYYY HH:mm')
+        }
 
-    const chatDateTemplate = `<div class="chat-date">
-    </div>`
+        let badgeClass = ''
+        if(connectionStatus) {
+            badgeClass = ' online'
+        }
+        if(otherUsers.length > 1) {
+            badgeClass += ' group-picture'
+        }
 
-    const attachmentUploadTemplate = `<li class="message-attachment-item">
-        <i class="material-icons">insert_drive_file</i>
-        <div class="message-attachment-filename" title="file name 0123.jpg">
-            file name 0123.jpg
-        </div>
-        <div class="progress">
-            <div class="determinate" style="width: 0%"></div>
-        </div>
-    </li>`
+        let imgs = ''
+        otherUsers.slice(0, 2).forEach(u => {
+            const {chatPicture, sex} = u
+            imgs += `<img class="circle" alt="avatar" src="${getChatPicture(chatPicture, sex)}">`            
+        })
+        
+        setConnectionStatus(channel_uuid, connectionStatus)
 
-    const attachmentImagePreviewTemplate = `<li class="message-attachment-item img-attachment">
-        <div class="message-attachment-preview">
-            <a href="javascript:;" class="close-preview">
-                <i class="material-icons">close</i>
-            </a>
-            <img src="img/096a4729-61a8-4aee-8970-574032421aa9-chat.webp" alt="IMAGE">
-        </div>
-    </li>`
-
-    const attachmentFilePreviewTemplate = `<li class="message-attachment-item file-attachment">
-        <div class="message-attachment-preview file-preview">
-            <div class="blue">
-                <i class="material-icons">insert_drive_file</i>
+        return `<li class="collection-item avatar">
+            <div class="badged-circle${badgeClass}">
+                ${imgs}
             </div>
-            <div>
-                <h4 class="file-type-preview">html</h4>
-                <p class="file-name-preview" title="projectdata.html">projectData-werewr.html</p>
+            <div class="title">${title}</div>
+            <div class="sub-title">${subTitle}</div>
+            <div class="last-msg-date">${lastMsgDate}</div>
+        </li>`
+    }
+
+    const renderMessage = ({user_id, msg, files, chatPicture, sex, created_at}) => {
+
+        let userImage = '', txtMsg = '', fileList = ``
+        
+        let msgClass = '', txtMsgAttr, fileListAttr
+        if(user_id == connectedUserId) {
+            msgClass = ' right'
+            txtMsgAttr = 'data-position="left"'
+            fileListAttr = 'data-position="left"'
+        }
+        else {
+            txtMsgAttr = 'data-position="right"'
+            fileListAttr = 'data-position="right"'
+        }
+
+        if(user_id == prev_user_id) {
+            msgClass += ' coalesce'
+        }
+        else {
+            userImage = `<img class="circle" alt="avatar" src="${getChatPicture(chatPicture, sex)}">`
+        }
+
+        if(msg !== '') {
+            txtMsg = `<div class="message tooltipped" ${txtMsgAttr}
+                            data-tooltip="${moment(new Date(created_at)).format('MMM D, YYYY [at] HH:mm')}">
+                ${msg}
+            </div>`
+        }
+
+        if(files.length > 0) {
+            files.forEach(file => {
+                if(file) {
+                    if(/^image/i.test(file.type)) {
+                        const imgElem = `<div class='message'>
+                            <img class="download-image" src="${'attachments/' + file.fileName}" alt="${file.originalFileName}">
+                        </div>`
+                        fileList += imgElem
+                    }
+                    else {
+                        const fileElem = `<div class='message'>
+                            <a href="${'attachments/' + file.fileName}" class="download-file" target="_blank">
+                                ${file.originalFileName}
+                            </a>
+                        </div>`
+                        fileList += fileElem
+                    }
+                }
+            })
+
+            fileList = `<div class="message-files tooltipped" ${fileListAttr}
+                            data-tooltip="${moment(new Date(created_at)).format('MMM D, YYYY [at] HH:mm')}">
+                ${fileList}
+            </div>`
+        }
+        
+        return `<div class="chat-message${msgClass}">
+            ${userImage}
+            ${txtMsg}
+            ${fileList}
+        </div>`
+    }
+
+    const renderChatDate = dateStr => `<div class="chat-date">${dateStr}</div>`
+
+    const renderAttachmentUpload = fileName => {
+        return `<li class="message-attachment-item">
+            <i class="material-icons">insert_drive_file</i>
+            <div class="message-attachment-filename" title="${fileName}">
+                ${fileName}
             </div>
-            <a href="javascript:;" class="close-preview">
-                <i class="material-icons">close</i>
-            </a>
-        </div>
-    </li>`
+            <div class="progress">
+                <div class="determinate" style="width: 0%"></div>
+            </div>
+        </li>`
+    }
+
+    const renderAttachmentImagePreview = ({id, imageUrl, originalFileName}) => {
+        return `<li class="message-attachment-item img-attachment" data-id="${id}">
+            <div class="message-attachment-preview">
+                <a href="javascript:;" class="close-preview">
+                    <i class="material-icons">close</i>
+                </a>
+                <img src="${imageUrl}" alt="${originalFileName}">
+            </div>
+        </li>`
+    }
+
+    const renderAttachmentFilePreview = ({id, originalFileName}) => {
+        return `<li class="message-attachment-item file-attachment" data-id="${id}">
+            <div class="message-attachment-preview file-preview">
+                <div class="blue">
+                    <i class="material-icons">insert_drive_file</i>
+                </div>
+                <div>
+                    <h4 class="file-type-preview">${originalFileName.split('.').pop()}</h4>
+                    <p class="file-name-preview" title="${originalFileName}">${originalFileName}</p>
+                </div>
+                <a href="javascript:;" class="close-preview">
+                    <i class="material-icons">close</i>
+                </a>
+            </div>
+        </li>`
+    }
 
     const channelsConnectionStatus = [] // {channel_uuid, connected}
 
@@ -95,66 +189,16 @@
         const dateMoment = moment(new Date(created_at))
         if(prev_day == null || prev_day != dateMoment.format('DDMMYYYY')) {
             prev_day = dateMoment.format('DDMMYYYY')
-            const dayDate = parser.parseFromString(chatDateTemplate, 'text/html').body.firstChild
-            dayDate.innerHTML = dateMoment.format('DD/MM/YYYY HH:mm')
+            const dayDate = parse(renderChatDate(dateMoment.format('DDMMYYYY')))
             chatHistoryList.appendChild(dayDate)
         }
 
-        // txt message
-        const messageElem = parser.parseFromString(messageTemplate, 'text/html').body.firstChild
-        const textMessage = messageElem.querySelector('.message')
-        textMessage.innerHTML = msg
-        textMessage.classList.add('tooltipped')
-        textMessage.setAttribute('data-tooltip', moment(new Date(created_at)).format('MMM D, YYYY [at] HH:mm'))
+        // txt message 
+        const messageElem = parse(renderMessage({user_id, msg, files, chatPicture, sex, created_at}))
 
-        const fileList = parser.parseFromString(`<div class="message-files"></div>`, 'text/html').body.firstChild
-        files.forEach(file => {
-            if(file) {
-                if(/^image/i.test(file.type)) {
-                    const imgElem = parser.parseFromString(`<div class='message'>
-                        <img class="download-image" src="${'attachments/' + file.fileName}" alt="${file.originalFileName}">
-                    </div>`, 'text/html').body.firstChild
-                    fileList.appendChild(imgElem)
-                }
-                else {
-                    const fileElem = parser.parseFromString(`<div class='message'>
-                        <a href="${'attachments/' + file.fileName}" class="download-file" target="_blank">
-                            ${file.originalFileName}
-                        </a>
-                    </div>`, 'text/html').body.firstChild
-                    fileList.appendChild(fileElem)
-                }
-            }
-        })
-        fileList.classList.add('tooltipped')
-        fileList.setAttribute('data-tooltip', moment(new Date(created_at)).format('MMM D, YYYY [at] HH:mm'))
-
-        if(user_id == connectedUserId) {
-            messageElem.classList.add('right')
-            textMessage.setAttribute('data-position', 'left')
-            fileList.setAttribute('data-position', 'left')
-        }
-        else {
-            textMessage.setAttribute('data-position', 'right')
-            fileList.setAttribute('data-position', 'right')
-        }
-
-        M.Tooltip.init(textMessage, {})
-        M.Tooltip.init(fileList, {})
-
-        if(user_id == prev_user_id) {
-            messageElem.classList.add('coalesce')
-            messageElem.removeChild(messageElem.querySelector('img.circle'))
-        }
-        else {
-            messageElem.querySelector('img.circle').src = getChatPicture(chatPicture, sex)
-        }
+        M.Tooltip.init(messageElem.querySelector('.message'), {})
+        M.Tooltip.init(messageElem.querySelector('.message-files'), {})
         prev_user_id = user_id
-        
-        if(files.length > 0) messageElem.appendChild(fileList)
-        if(msg == '') {
-            messageElem.removeChild(textMessage)
-        }
 
         chatHistoryList.appendChild(messageElem)
     }
@@ -292,10 +336,7 @@
         uploader.on('start', function(fileInfo) {
             console.log('Start uploading', fileInfo)
 
-            const attachmentUpload = parser.parseFromString(attachmentUploadTemplate, 'text/html').body.firstChild
-            const msgAttachFilename = attachmentUpload.querySelector('.message-attachment-filename')
-            msgAttachFilename.innerText = fileInfo.name
-            msgAttachFilename.setAttribute('title', fileInfo.name)
+            const attachmentUpload = parse(renderAttachmentUpload(fileInfo.name))
 
             uploads[fileInfo.uploadId] = {
                 elem: attachmentUpload,
@@ -334,52 +375,10 @@
 
         channelsList.innerHTML = ''
         for (let index = 0; index < channels.length; index++) {
-            const {
-                channel_uuid,
-                body, sender_id, created_at,
-                users,
-                connectionStatus
-            } = channels[index]
+            const { channel_uuid, users } = channels[index]
 
-            const channelItem = parser.parseFromString(channelItemTemplate, 'text/html').body.firstChild
-            const otherUsers = users.filter(u => users.length == 1 || u.user_id != connectedUserId)
-            const otherUsernames = `${otherUsers.map(u => u.username).join(', ')}`
-            channelItem.querySelector('.title').innerText = otherUsernames
-            if(body) {
-                let subtitle = ''
-                if(users.length > 1 && sender_id == connectedUserId) {
-                    subtitle += 'You: '
-                }
-                else if(users.length > 2) {
-                    subtitle += users.find(u => u.user_id == sender_id).username
-                }
-                subtitle += body
-                channelItem.querySelector('.sub-title').innerHTML = subtitle
-                channelItem.querySelector('.last-msg-date').innerText = moment(new Date(created_at)).format('DD/MM/YYYY HH:mm')
-            }
+            const channelItem = parse(renderChannelItem(channels[index]))
 
-            if(connectionStatus) {
-                channelItem.querySelector('.badged-circle').classList.add('online')
-            }
-            setConnectionStatus(channel_uuid, connectionStatus)
-            
-            if(otherUsers.length > 1) {
-                channelItem.querySelector('.badged-circle').classList.add('group-picture')
-            }
-            otherUsers.slice(0, 2).forEach((u, i, arr) => {
-                const {chatPicture, sex} = u
-                if(i == 0) {
-                    const img = channelItem.querySelector('img.circle')
-                    img.src = getChatPicture(chatPicture, sex)
-                }
-                else {
-                    const img = document.createElement('img')
-                    img.src = getChatPicture(chatPicture, sex)
-                    img.classList.add('circle')
-                    img.alt = 'avatar'
-                    channelItem.querySelector('.badged-circle').appendChild(img)
-                }
-            })
             channelItem.setAttribute('data-channel_uuid', channel_uuid) // existing or temporary
             channelItem.setAttribute('data-users', users.map(u => u.user_id).join('-'))
 
@@ -452,19 +451,10 @@
         // show preview (images, other files)
         let attachmentPreview
         if(/^image/i.test(type)) {
-            attachmentPreview = parser.parseFromString(attachmentImagePreviewTemplate, 'text/html').body.firstChild
-            const previewImg = attachmentPreview.querySelector('img')
-            previewImg.src = imageUrl
-            previewImg.setAttribute('alt', originalFileName)
-            attachmentPreview.setAttribute('data-id', id)
+            attachmentPreview = parse(renderAttachmentImagePreview({id, imageUrl, originalFileName}))
         }
         else {
-            attachmentPreview = parser.parseFromString(attachmentFilePreviewTemplate, 'text/html').body.firstChild
-            const previewFileName = attachmentPreview.querySelector('.file-name-preview')
-            previewFileName.setAttribute('title', originalFileName)
-            previewFileName.textContent = originalFileName
-            attachmentPreview.querySelector('.file-type-preview').textContent = originalFileName.split('.').pop()
-            attachmentPreview.setAttribute('data-id', id)
+            attachmentPreview = parse(renderAttachmentFilePreview({id, originalFileName}))
         }
 
         // replace progress by preview
@@ -513,6 +503,7 @@
             msgInput.innerHTML = ''
             attachmentFiles.innerHTML = ''
             for (var name in uploads) delete uploads[name]
+            resizeChatLayout()
         }
     })
 
