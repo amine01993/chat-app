@@ -370,6 +370,33 @@
         chatCard.style.gridTemplateRows = `88px calc(100vh - 88px - 1px - ${msgForm.offsetHeight}px) ${msgForm.offsetHeight}px`
     }
 
+    function scrollToMessage(msgElem) {
+        if(msgElem) {
+            const imgs = chatHistoryList.querySelectorAll('.chat-message img:not([alt="avatar"])')
+            let loadedCount = imgs.length
+            const load = () => {
+                if(--loadedCount == 0) {
+                    msgElem.scrollIntoView(true)
+                }
+            }
+            for(const img of imgs) {
+                if(img.complete) {
+                    load()
+                }
+                else {
+                    img.addEventListener('load', () => {
+                        load()
+                    })
+                }
+            }
+        }
+    }
+
+    function scrollToLastMessage() {
+        const lastChatMsg = chatHistoryList.querySelector('.chat-message:last-child') 
+        scrollToMessage(lastChatMsg)
+    }
+
     socket.on('channels', channels => {
         console.log(channels)
 
@@ -434,10 +461,7 @@
             addMessage(messages[mi])
         }
 
-        const lastChatMsg = chatHistoryList.querySelector('.chat-message:last-child') 
-        if(lastChatMsg) {
-            lastChatMsg.scrollIntoView(true)
-        }
+        scrollToLastMessage()
 
         // update addGroup AutoComplete
         updateAddGroup(acUsers)
@@ -510,6 +534,7 @@
     socket.on('messageListener', data => {
         console.log(data)
         addMessage(data.msg)
+        scrollToLastMessage()
     })
 
     socket.on('connectionStatusListener', ({user_id, connected, lastConnection}) => {

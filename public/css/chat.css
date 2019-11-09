@@ -294,6 +294,11 @@ p {
     z-index: 2;
 }
 
+#channels-list {
+    overflow-y: scroll;
+    height: calc(100vh - 88px);
+}
+
 #channels-list .badged-circle.group-picture img:first-child {
     width: 32px;
     height: 32px;
