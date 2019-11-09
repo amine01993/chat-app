@@ -9,3 +9,4 @@ public/img/*
 public/attachments/*
 tasks.txt
 emojione-template
+.env

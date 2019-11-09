@@ -1,3 +1,5 @@
+require('./helpers/config')
+
 const express = require('express')
 const app = express()
 const fs = require('fs')
@@ -31,10 +33,10 @@ const auth = require('./helpers/auth')
 let db = knex({
     client: 'pg',
     connection: {
-        host: '127.0.0.1',
-        user: 'postgres',
-        password: '123456',
-        database: 'chat-app'
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASS,
+        database: process.env.DB_NAME
     }
 })
 
