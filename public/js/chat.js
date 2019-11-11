@@ -6,11 +6,13 @@
     const parser = new DOMParser()
     const connectedUserId = document.getElementById('connected-user').value
     const uploads = {}
+    const unReadMessages = []
 
     const channelsList = document.getElementById('channels-list')
     const chatCard = document.getElementById('chat-card')
     const chatWith = chatCard.querySelector('.card-title')
     const chatHistoryList = chatCard.querySelector('.chat-wrapper')
+    const chatContent = chatCard.querySelector('.chat-content')
     const addGroupContainer = chatCard.querySelector('.add-group-container')
     const addGroupAction = document.getElementById('add-group-action')
     const msgForm = chatCard.querySelector('#message-form')
@@ -64,7 +66,7 @@
         </li>`
     }
 
-    const renderMessage = ({user_id, msg, files, chatPicture, sex, created_at}) => {
+    const renderMessage = ({user_id, msg_id, msg, files, chatPicture, sex, created_at}) => {
 
         let userImage = '', txtMsg = '', fileList = ``
         
@@ -119,7 +121,7 @@
             </div>`
         }
         
-        return `<div class="chat-message${msgClass}">
+        return `<div class="chat-message${msgClass}" data-msg-id="${msg_id}">
             ${userImage}
             ${txtMsg}
             ${fileList}
@@ -184,7 +186,7 @@
             : `default-img/${gender == 'female' ? 'default-female-icon.png' : 'default-icon.png'}`
     }
 
-    function addMessage({user_id, msg, files, chatPicture, sex, created_at}) {
+    function addMessage({user_id, msg_id, msg, files, chatPicture, sex, created_at}) {
 
         const dateMoment = moment(new Date(created_at))
         if(prev_day == null || prev_day != dateMoment.format('DDMMYYYY')) {
@@ -194,7 +196,7 @@
         }
 
         // txt message 
-        const messageElem = parse(renderMessage({user_id, msg, files, chatPicture, sex, created_at}))
+        const messageElem = parse(renderMessage({user_id, msg_id, msg, files, chatPicture, sex, created_at}))
 
         M.Tooltip.init(messageElem.querySelector('.message'), {})
         M.Tooltip.init(messageElem.querySelector('.message-files'), {})
@@ -371,30 +373,67 @@
     }
 
     function scrollToMessage(msgElem) {
-        if(msgElem) {
-            const imgs = chatHistoryList.querySelectorAll('.chat-message img:not([alt="avatar"])')
-            let loadedCount = imgs.length
-            const load = () => {
-                if(--loadedCount == 0) {
-                    msgElem.scrollIntoView(true)
+        return new Promise((resolve, reject) => {
+            if(msgElem) {
+                const imgs = chatHistoryList.querySelectorAll('.chat-message img:not([alt="avatar"])')
+                let loadedCount = imgs.length
+                const load = () => {
+                    if(--loadedCount == 0) {
+                        msgElem.scrollIntoView(true)
+                        resolve()
+                    }
                 }
-            }
-            for(const img of imgs) {
-                if(img.complete) {
-                    load()
-                }
-                else {
-                    img.addEventListener('load', () => {
+                for(const img of imgs) {
+                    if(img.complete) {
                         load()
-                    })
+                    }
+                    else {
+                        img.addEventListener('load', () => {
+                            load()
+                        })
+                    }
                 }
             }
-        }
+        })
     }
 
-    function scrollToLastMessage() {
+    async function scrollToLastMessage() {
         const lastChatMsg = chatHistoryList.querySelector('.chat-message:last-child') 
-        scrollToMessage(lastChatMsg)
+        await scrollToMessage(lastChatMsg)
+    }
+
+    // check if an unread message has been read
+    // if true return message id else false
+    function isMessageRead(chatMsgElem) {
+        const msg_id = chatMsgElem.dataset.msgId
+        const mi = unReadMessages.findIndex(mId => mId == msg_id)
+        if(mi == -1) return false
+
+        const msgBound = chatMsgElem.getBoundingClientRect()
+        // is in viewport
+        if( msgBound.top >= 0 && msgBound.left >= 0 &&
+            msgBound.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+            msgBound.right <= (window.innerWidth || document.documentElement.clientWidth) ) {
+            // if container show the message
+            const containerBound = chatContent.getBoundingClientRect()
+            if( msgBound.top >= containerBound.top && msgBound.bottom <= containerBound.bottom ) {
+                // unReadMessages.splice(mi, 1)
+                return msg_id
+            }
+        }
+        return false
+    }
+
+    function updateMessageRead() {
+        const readMsgs = []
+        for(const msgElem of chatHistoryList.querySelectorAll('.chat-message')) {
+            const mid = isMessageRead(msgElem)
+            if(mid) readMsgs.push(mid)
+        }
+        console.log(readMsgs)
+        if(readMsgs.length > 0) {
+            socket.emit('updateMessageRead', readMsgs)
+        }
     }
 
     socket.on('channels', channels => {
@@ -434,7 +473,7 @@
     })
 
     let prev_user_id = null, prev_day = null, ac_users = null
-    socket.on('chat', ({channel_uuid, users, messages, channel_item_id, acUsers}) => {
+    socket.on('chat', async ({channel_uuid, users, messages, channel_item_id, acUsers}) => {
         console.log('chat', {channel_uuid, users, messages, channel_item_id})
 
         chatWith.innerHTML = `Chat with ${users.filter(u => users.length == 1 || u.user_id != connectedUserId).map(u => u.username).join(', ')}`
@@ -459,12 +498,34 @@
         prev_day = null
         for (let mi = 0; mi < messages.length; mi++) {
             addMessage(messages[mi])
-        }
 
-        scrollToLastMessage()
+            const {msg_id, read_at} = messages[mi]
+            if(!read_at) {
+                unReadMessages.push(msg_id)
+            }
+        }
 
         // update addGroup AutoComplete
         updateAddGroup(acUsers)
+
+        let timeOut
+        chatContent.addEventListener('scroll', event => {
+            if(timeOut) clearTimeout(timeOut)
+            timeOut = setTimeout(() => {
+                updateMessageRead()
+            }, 100)
+        })
+
+        await scrollToLastMessage()
+        updateMessageRead()
+    })
+
+    socket.on('updatedMessageRead', readMsgs => {
+        console.log('readMsgs', readMsgs)
+        for(const mid of readMsgs) {
+            const mi = unReadMessages.findIndex(mi => mi == mid)
+            if(mi !== -1) unReadMessages.splice(mi, 1)
+        }
     })
 
     socket.on('updateAddGroup', (acUsers) => {

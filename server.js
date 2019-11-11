@@ -358,12 +358,14 @@ io.on('connection', async (socket) => {
 
         io.in(data.channel_uuid).emit('messageListener', {
             msg: {
+                msg_id: message[0].id,
                 msg: data.value,
                 user_id: socket.user_id,
                 chatPicture: currentUser.chatPicture,
                 sex: currentUser.sex,
                 created_at: message[0].created_at,
-                files
+                files,
+                read_at: null
             },
         });
     })
@@ -406,7 +408,10 @@ io.on('connection', async (socket) => {
         }
 
         if (channelExist) {
-            messages = await db.select('m.body AS msg', 'u.id AS user_id', 'u.chatPicture', 'u.sex', 'm.created_at')
+            messages = await db.select(
+                'm.id AS msg_id', 'm.body AS msg', 'u.id AS user_id', 
+                'u.chatPicture', 'u.sex', 'm.created_at', 'mm.read_at'
+                )
                 .select(db.raw(
                     `COALESCE(json_agg(
                         json_build_object('fileName', mf."fileName", 'type', mf.type, 'originalFileName', mf."originalFileName"
@@ -418,7 +423,7 @@ io.on('connection', async (socket) => {
                 .leftJoin('message_files AS mf', 'mf.message_id', 'm.id')
                 .where('m.channel_uuid', '=', data.channel_uuid)
                 .andWhere('mm.participant_id', '=', socket.handshake.session.passport.user.id)
-                .groupByRaw('m.body, u.id, u."chatPicture", u.sex, m.created_at')
+                .groupByRaw('m.id, m.body, u.id, u."chatPicture", u.sex, m.created_at, mm.read_at')
                 .orderBy('m.created_at')
         }
 
@@ -469,6 +474,18 @@ io.on('connection', async (socket) => {
             channel_item_id: channelExist ? null : data.channel_uuid,
             acUsers
         })
+    })
+
+    socket.on('updateMessageRead', async readMsgs => {
+        console.log(readMsgs)
+        socket.user_id
+        await db('message_metadatas')
+        .where('participant_id', '=', socket.user_id)
+        .andWhere(function(){ this.whereNull('read_at') })
+        .andWhere(function(){ this.whereIn('message_id', readMsgs) })
+        .update({read_at: db.fn.now()})
+
+        socket.emit('updatedMessageRead', readMsgs)
     })
 
     socket.on('addUsersToChannel', async ({users, channel_uuid}) => {
