@@ -387,16 +387,24 @@
                         resolve()
                     }
                 }
-                for(const img of imgs) {
-                    if(img.complete) {
-                        load()
-                    }
-                    else {
-                        img.addEventListener('load', () => {
+                if(loadedCount == 0) {
+                    resolve()
+                }
+                else {
+                    for(const img of imgs) {
+                        if(img.complete) {
                             load()
-                        })
+                        }
+                        else {
+                            img.addEventListener('load', () => {
+                                load()
+                            })
+                        }
                     }
                 }
+            }
+            else {
+                resolve()
             }
         })
     }
@@ -434,7 +442,7 @@
             const mid = isMessageRead(msgElem)
             if(mid) readMsgs.push(mid)
         }
-        console.log(readMsgs)
+        
         if(readMsgs.length > 0) {
             socket.emit('updateMessageRead', readMsgs)
         }
@@ -521,6 +529,7 @@
 
         selected_channel_uuid = channel_uuid
         prev_day = null
+        unReadMessages.splice(0)
         for (let mi = 0; mi < messages.length; mi++) {
             addMessage(messages[mi])
 
