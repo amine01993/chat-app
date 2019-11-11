@@ -326,6 +326,22 @@ p {
     min-height: 21px;
 }
 
+.collection .collection-item.avatar .sub-title.unread {
+    color: black;
+    font-weight: bold;
+}
+.collection .collection-item.avatar .unread-count {
+    background-color: #b71c1c;
+    font-weight: bold;
+    color: white;
+    font-size: 0.8rem;
+    min-width: 20px;
+    border-radius: 63%;
+    margin: 0;
+    position: absolute;
+    right: 5px;
+}
+
 .collection .collection-item.avatar .last-msg-date {
     font-size: 13px;
     color: rgba(0, 0, 0, .40);

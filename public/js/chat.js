@@ -24,23 +24,27 @@
 
     const parse = html => parser.parseFromString(html, 'text/html').body.firstChild
     
-    const renderChannelItem = ({users, channel_uuid, body, sender_id, connectionStatus, created_at}) => {
+    const renderChannelItem = ({users, channel_uuid, body, sender_id, connectionStatus, created_at, unread_count}) => {
         const otherUsers = users.filter(u => users.length == 1 || u.user_id != connectedUserId)
         const title = otherUsers.map(u => u.username).join(', ')
         
-        let subTitle = '', lastMsgDate = ''
+        let subTitle = '', unReadCount = '', lastMsgDate = '', badgeClass = '', unReadClass = ''
         if(body) {
             if(users.length > 1 && sender_id == connectedUserId) {
                 subTitle += 'You: '
             }
             else if(users.length > 2) {
-                subTitle += users.find(u => u.user_id == sender_id).username
+                subTitle += users.find(u => u.user_id == sender_id).username + ': '
             }
             subTitle += body
             lastMsgDate = moment(new Date(created_at)).format('DD/MM/YYYY HH:mm')
+
+            if(unread_count > 0) {
+                unReadCount = `<span class="badge unread-count">${unread_count}</span>`
+                unReadClass = ' unread'
+            }
         }
 
-        let badgeClass = ''
         if(connectionStatus) {
             badgeClass = ' online'
         }
@@ -61,7 +65,7 @@
                 ${imgs}
             </div>
             <div class="title">${title}</div>
-            <div class="sub-title">${subTitle}</div>
+            <div class="sub-title${unReadClass}">${subTitle} ${unReadCount}</div>
             <div class="last-msg-date">${lastMsgDate}</div>
         </li>`
     }
@@ -472,7 +476,15 @@
         }
     })
 
-    let prev_user_id = null, prev_day = null, ac_users = null
+    let prev_user_id = null, prev_day = null, ac_users = null, timeOut = null
+
+    chatContent.addEventListener('scroll', event => {
+        if(timeOut) clearTimeout(timeOut)
+        timeOut = setTimeout(() => {
+            updateMessageRead()
+        }, 100)
+    })
+    
     socket.on('chat', async ({channel_uuid, users, messages, channel_item_id, acUsers}) => {
         console.log('chat', {channel_uuid, users, messages, channel_item_id})
 
@@ -487,9 +499,22 @@
         updateConnectionStatus(channel_uuid, lastConnection)
 
         // update channelItem id
+        let channelItem
         if(channel_item_id) {
-            const channelItem = document.querySelector(`[data-channel_uuid=${channel_item_id}]`)
+            channelItem = document.querySelector(`[data-channel_uuid='${channel_item_id}']`)
             channelItem.setAttribute('data-channel_uuid', channel_uuid)
+        }
+        else {
+            channelItem = document.querySelector(`[data-channel_uuid='${channel_uuid}']`)
+        }
+
+        const unReadItem = channelItem.querySelector('.sub-title.unread')
+        if(unReadItem) {
+            unReadItem.classList.remove('unread')
+            const unReadBadge = unReadItem.querySelector('.unread-count')
+            if(unReadBadge) {
+                unReadBadge.remove()
+            }
         }
 
         chatHistoryList.innerHTML = ''
@@ -508,16 +533,11 @@
         // update addGroup AutoComplete
         updateAddGroup(acUsers)
 
-        let timeOut
-        chatContent.addEventListener('scroll', event => {
-            if(timeOut) clearTimeout(timeOut)
-            timeOut = setTimeout(() => {
-                updateMessageRead()
-            }, 100)
-        })
-
+        if(chatContent.clientHeight == chatContent.scrollHeight) {
+            updateMessageRead()
+        }
+        
         await scrollToLastMessage()
-        updateMessageRead()
     })
 
     socket.on('updatedMessageRead', readMsgs => {

@@ -477,8 +477,6 @@ io.on('connection', async (socket) => {
     })
 
     socket.on('updateMessageRead', async readMsgs => {
-        console.log(readMsgs)
-        socket.user_id
         await db('message_metadatas')
         .where('participant_id', '=', socket.user_id)
         .andWhere(function(){ this.whereNull('read_at') })
@@ -576,7 +574,7 @@ http.listen(3000, () => {
 async function getChannels(current_user) {
 
     const definedChannels = await db.raw(
-        `SELECT ch_u.channel_uuid, ch_m.body, ch_m.sender_id, ch_m.created_at, ch_u.users
+        `SELECT ch_u.channel_uuid, ch_m.body, ch_m.sender_id, ch_m.created_at, ch_u.users, COALESCE(ch_stat.unread_count, 0) AS unread_count
         FROM (
             SELECT cu.channel_uuid,
                 json_agg(json_build_object(
@@ -596,7 +594,25 @@ async function getChannels(current_user) {
                 FROM messages
                 GROUP BY channel_uuid
             ) m2 ON m1.channel_uuid = m2.channel_uuid AND m1.created_at = m2.created_at
-        ) ch_m ON ch_m.channel_uuid = ch_u.channel_uuid`
+        ) ch_m ON ch_m.channel_uuid = ch_u.channel_uuid
+        LEFT JOIN (
+            SELECT m.channel_uuid, COUNT(*) AS unread_count
+            FROM messages m
+            INNER JOIN message_metadatas mm ON m.id = mm.message_id 
+                                            AND mm.participant_id = ${current_user.user_id}
+                                            AND mm.read_at IS NULL
+            WHERE m.created_at >= (
+                SELECT COALESCE(MAX(_m.created_at), m.created_at) 
+                FROM messages _m
+                INNER JOIN message_metadatas _mm 
+                    ON _m.id = _mm.message_id 
+                    AND _mm.participant_id = ${current_user.user_id} 
+                    AND _mm.read_at IS NOT NULL
+                WHERE _m.channel_uuid = m.channel_uuid
+            )
+            GROUP BY m.channel_uuid
+        ) ch_stat ON ch_stat.channel_uuid = ch_u.channel_uuid
+        `
     )
 
     const users = await db.select('id', 'username', 'chatPicture', 'sex').from('users')
@@ -611,7 +627,8 @@ async function getChannels(current_user) {
             body: definedChannel.body,
             sender_id: definedChannel.sender_id,
             created_at: definedChannel.created_at,
-            users: definedChannel.users
+            users: definedChannel.users,
+            unread_count: definedChannel.unread_count
         })
     }
 
@@ -634,7 +651,8 @@ async function getChannels(current_user) {
                         username: user.username,
                         chatPicture: user.chatPicture,
                         sex: user.sex,
-                    }]
+                    }],
+                    unread_count: 0
                 })
             }
         } else {
@@ -655,7 +673,8 @@ async function getChannels(current_user) {
                         username: current_user.username,
                         chatPicture: current_user.chatPicture,
                         sex: current_user.sex,
-                    }]
+                    }],
+                    unread_count: 0
                 })
             }
         }
