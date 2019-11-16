@@ -132,7 +132,7 @@
         </div>`
     }
 
-    const renderChatDate = dateStr => `<div class="chat-date">${dateStr}</div>`
+    const renderChatDate = dateMoment => `<div class="chat-date">${displayDate(dateMoment)}</div>`
 
     const renderAttachmentUpload = fileName => {
         return `<li class="message-attachment-item">
@@ -190,12 +190,26 @@
             : `default-img/${gender == 'female' ? 'default-female-icon.png' : 'default-icon.png'}`
     }
 
-    function addMessage({user_id, msg_id, msg, files, chatPicture, sex, created_at}) {
+    function displayDate(dm) {
+        const d = moment(new Date())
+        // today
+        if(d.format('DDMMYYYY') == dm.format('DDMMYYYY')) {
+            return dm.format('LT') // 6:46 PM
+        }
+        // same year
+        if(d.format('YYYY') == dm.format('YYYY')) {
+            return dm.format('ll, LT') // Nov 16, 2019, 6:47 PM
+        }
+        // else
+        return dm.format('L, LT') // 12/30/2016, 1:27 PM
+    }
+
+    function addMessage({user_id, msg_id, msg, files, chatPicture, sex, created_at, read_at}) {
 
         const dateMoment = moment(new Date(created_at))
         if(prev_day == null || prev_day != dateMoment.format('DDMMYYYY')) {
             prev_day = dateMoment.format('DDMMYYYY')
-            const dayDate = parse(renderChatDate(dateMoment.format('DDMMYYYY')))
+            const dayDate = parse(renderChatDate(dateMoment))
             chatHistoryList.appendChild(dayDate)
         }
 
@@ -207,6 +221,10 @@
         prev_user_id = user_id
 
         chatHistoryList.appendChild(messageElem)
+
+        if(user_id != connectedUserId && !read_at) {
+            unReadMessages.push(msg_id)
+        }
     }
 
     function setConnectionStatus(channel_uuid, connected) {
@@ -382,13 +400,13 @@
                 const imgs = chatHistoryList.querySelectorAll('.chat-message img:not([alt="avatar"])')
                 let loadedCount = imgs.length
                 const load = () => {
-                    if(--loadedCount == 0) {
+                    if(--loadedCount <= 0) {
                         msgElem.scrollIntoView(true)
                         resolve()
                     }
                 }
                 if(loadedCount == 0) {
-                    resolve()
+                    load()
                 }
                 else {
                     for(const img of imgs) {
@@ -429,7 +447,6 @@
             // if container show the message
             const containerBound = chatContent.getBoundingClientRect()
             if( msgBound.top >= containerBound.top && msgBound.bottom <= containerBound.bottom ) {
-                // unReadMessages.splice(mi, 1)
                 return msg_id
             }
         }
@@ -532,11 +549,6 @@
         unReadMessages.splice(0)
         for (let mi = 0; mi < messages.length; mi++) {
             addMessage(messages[mi])
-
-            const {msg_id, read_at} = messages[mi]
-            if(!read_at) {
-                unReadMessages.push(msg_id)
-            }
         }
 
         // update addGroup AutoComplete
@@ -621,10 +633,10 @@
         }
     })
 
-    socket.on('messageListener', data => {
+    socket.on('messageListener', async data => {
         console.log(data)
         addMessage(data.msg)
-        scrollToLastMessage()
+        await scrollToLastMessage()
     })
 
     socket.on('connectionStatusListener', ({user_id, connected, lastConnection}) => {

@@ -349,7 +349,8 @@ io.on('connection', async (socket) => {
         users.forEach(async ({user_id}) => {
             await db('message_metadatas').insert({
                 message_id: message[0].id,
-                participant_id: user_id
+                participant_id: user_id,
+                read_at: user_id == socket.user_id ? db.fn.now() : null
             })
         })
 
@@ -364,8 +365,7 @@ io.on('connection', async (socket) => {
                 chatPicture: currentUser.chatPicture,
                 sex: currentUser.sex,
                 created_at: message[0].created_at,
-                files,
-                read_at: null
+                files
             },
         });
     })
