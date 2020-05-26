@@ -1,4 +1,4 @@
-require('./helpers/config')
+// require('./helpers/config')
 
 const express = require('express')
 const app = express()
@@ -567,8 +567,9 @@ io.on('connection', async (socket) => {
     })
 })
 
-http.listen(3000, () => {
-    console.log('listening on *:3000')
+const PORT = process.env.PORT || 3000
+http.listen(PORT, () => {
+    console.log('listening on *:'+ PORT)
 })
 
 async function getChannels(current_user) {

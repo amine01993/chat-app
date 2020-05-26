@@ -31,10 +31,8 @@ CREATE TABLE public.users
     sex character varying(20) COLLATE pg_catalog."default",
     "chatPicture" character varying(100) COLLATE pg_catalog."default",
     CONSTRAINT pk_id PRIMARY KEY (id),
-    CONSTRAINT email_unique UNIQUE (email)
-,
+    CONSTRAINT email_unique UNIQUE (email),
     CONSTRAINT username_unique UNIQUE (username)
-
 )
 WITH (
     OIDS = FALSE
@@ -50,8 +48,7 @@ CREATE TABLE public.channel_user
 (
     channel_uuid character varying(100) COLLATE pg_catalog."default" NOT NULL,
     user_id integer NOT NULL,
-    CONSTRAINT channel_user_unique UNIQUE (channel_uuid, user_id)
-,
+    CONSTRAINT channel_user_unique UNIQUE (channel_uuid, user_id),
     CONSTRAINT channel_uuid_foreign_key FOREIGN KEY (channel_uuid)
         REFERENCES public.channels (uuid) MATCH SIMPLE
         ON UPDATE NO ACTION
