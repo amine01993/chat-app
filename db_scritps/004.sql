@@ -17,9 +17,6 @@ WITH (
 )
 TABLESPACE pg_default;
 
-ALTER TABLE public.message_files
-    OWNER to postgres;
-
 CREATE INDEX fki_message_files_fk
     ON public.message_files USING btree
     (message_id)

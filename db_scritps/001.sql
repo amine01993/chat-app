@@ -14,9 +14,6 @@ WITH (
 )
 TABLESPACE pg_default;
 
-ALTER TABLE public.channels
-    OWNER to postgres;
-
 -- Table: public.users
 -- DROP TABLE public.users;
 CREATE TABLE public.users
@@ -39,9 +36,6 @@ WITH (
 )
 TABLESPACE pg_default;
 
-ALTER TABLE public.users
-    OWNER to postgres;
-
 -- Table: public.channel_user
 -- DROP TABLE public.channel_user;
 CREATE TABLE public.channel_user
@@ -62,9 +56,6 @@ WITH (
     OIDS = FALSE
 )
 TABLESPACE pg_default;
-
-ALTER TABLE public.channel_user
-    OWNER to postgres;
 
 -- Index: fki_channel_uuid_foreign_key
 -- DROP INDEX public.fki_channel_uuid_foreign_key;
@@ -104,9 +95,6 @@ WITH (
 )
 TABLESPACE pg_default;
 
-ALTER TABLE public.messages
-    OWNER to postgres;
-
 -- Index: fki_channel_uuid_foreign_key2
 -- DROP INDEX public.fki_channel_uuid_foreign_key2;
 CREATE INDEX fki_channel_uuid_foreign_key2
@@ -143,9 +131,6 @@ WITH (
     OIDS = FALSE
 )
 TABLESPACE pg_default;
-
-ALTER TABLE public.message_metadatas
-    OWNER to postgres;
 
 -- Index: fki_message_id_foreign_key
 -- DROP INDEX public.fki_message_id_foreign_key;
