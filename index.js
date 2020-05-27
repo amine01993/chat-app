@@ -226,14 +226,19 @@ app.post('/profileImage', auth.isAuthorized, async (req, res) => {
     const {image, name, type} = req.body
     const imageBase64Data = image.replace(new RegExp(`^data:${type};base64,`), '');
 
-    const imageNamePrefix = uuidv4()
-    const imageName = `${imageNamePrefix}.webp`
+    const imageNamePrefix = uuidv4(), imageNamePrefix2 = uuidv4()
+    const imageName = `${imageNamePrefix}.png`
     const imageUrl = `img/${imageName}`
-    // fs.writeFileSync(`public/${imageUrl}`, imageBase64Data, 'base64')
-    const info = await sharp(new Buffer(imageBase64Data, 'base64')).webp({ lossless: true }).toFile(`./public/${imageUrl}`)
+    fs.writeFileSync(`public/img/${imageNamePrefix2}.png`, imageBase64Data, 'base64')
+    // const imgBuffer = Buffer.from(image, 'base64')
+    const info = await sharp(`public/img/${imageNamePrefix2}.png`)
+                .png({ compressionLevel: 9, adaptiveFiltering: true, force: true })
+                .withMetadata().toFile(`public/${imageUrl}`)
+    fs.unlinkSync(`public/img/${req.user.profilePicture}`) // remove temp image
     // create chat img 100x100
-    const chatImageName = `${imageNamePrefix}-chat.webp`
-    const infoChat = await sharp(`./public/${imageUrl}`).resize(100).toFile(`./public/img/${chatImageName}`) // resize & save
+    const chatImageName = `${imageNamePrefix}-chat.png`
+    const infoChat = await sharp(`public/img/${imageNamePrefix}.png`)
+                .resize(100).toFile(`public/img/${chatImageName}`) // resize & save
 
     await db('users').update({profilePicture: imageName, chatPicture: chatImageName}).where({id: req.user.id})
     // delete old picture if it exists
