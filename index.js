@@ -1,4 +1,4 @@
-// require('./helpers/config')
+require('./helpers/config')
 
 const express = require('express')
 const app = express()
@@ -32,7 +32,12 @@ const auth = require('./helpers/auth')
 
 let db = knex({
     client: 'pg',
-    connection: process.env.DATABASE_URL
+    connection: {
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASS,
+        database: process.env.DB_NAME
+    }
 })
 
 app.use(compression())
@@ -230,18 +235,18 @@ app.post('/profileImage', auth.isAuthorized, async (req, res) => {
     const imageName = `${imageNamePrefix}.webp`
     const imageUrl = `img/${imageName}`
     // fs.writeFileSync(`public/${imageUrl}`, imageBase64Data, 'base64')
-    const info = await sharp(new Buffer(imageBase64Data, 'base64')).webp({ lossless: true }).toFile(`public/${imageUrl}`)
+    const info = await sharp(new Buffer(imageBase64Data, 'base64')).webp({ lossless: true }).toFile(`./public/${imageUrl}`)
     // create chat img 100x100
     const chatImageName = `${imageNamePrefix}-chat.webp`
-    const infoChat = await sharp(`public/${imageUrl}`).resize(100).toFile(`public/img/${chatImageName}`) // resize & save
+    const infoChat = await sharp(`./public/${imageUrl}`).resize(100).toFile(`./public/img/${chatImageName}`) // resize & save
 
     await db('users').update({profilePicture: imageName, chatPicture: chatImageName}).where({id: req.user.id})
     // delete old picture if it exists
-    if(req.user.profilePicture != null && req.user.profilePicture != '' && fs.existsSync(`public/img/${req.user.profilePicture}`)) {
-        fs.unlinkSync(`public/img/${req.user.profilePicture}`)
+    if(req.user.profilePicture != null && req.user.profilePicture != '' && fs.existsSync(`./public/img/${req.user.profilePicture}`)) {
+        fs.unlinkSync(`./public/img/${req.user.profilePicture}`)
     }
-    if(req.user.chatPicture != null && req.user.chatPicture != '' && fs.existsSync(`public/img/${req.user.chatPicture}`)) {
-        fs.unlinkSync(`public/img/${req.user.chatPicture}`)
+    if(req.user.chatPicture != null && req.user.chatPicture != '' && fs.existsSync(`./public/img/${req.user.chatPicture}`)) {
+        fs.unlinkSync(`./public/img/${req.user.chatPicture}`)
     }
     res.json({imageUrl, success: true})
 })
