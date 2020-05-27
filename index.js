@@ -3,7 +3,6 @@ require('./helpers/config')
 const express = require('express')
 const app = express()
 const fs = require('fs')
-const sharp = require('sharp')
 const http = require('http').createServer(app)
 const nunjucks = require('nunjucks')
 const io = require('socket.io')(http)
@@ -29,6 +28,7 @@ const saltRounds = 10
 const sleep = require('./helpers/sleep')
 const random = require('./helpers/random')
 const auth = require('./helpers/auth')
+const jimp = require('./helpers/jimp-sync')
 
 let db = knex({
     client: 'pg',
@@ -231,19 +231,16 @@ app.post('/profileImage', auth.isAuthorized, async (req, res) => {
     const {image, name, type} = req.body
     const imageBase64Data = image.replace(new RegExp(`^data:${type};base64,`), '');
 
-    const imageNamePrefix = uuidv4(), imageNamePrefix2 = uuidv4()
+    const imageNamePrefix = uuidv4()
     const imageName = `${imageNamePrefix}.png`
     const imageUrl = `img/${imageName}`
-    fs.writeFileSync(`public/img/${imageNamePrefix2}.png`, imageBase64Data, 'base64')
-    // const imgBuffer = Buffer.from(image, 'base64')
-    const info = await sharp(`public/img/${imageNamePrefix2}.png`)
-                .png({ compressionLevel: 9, adaptiveFiltering: true, force: true })
-                .withMetadata().toFile(`public/${imageUrl}`)
-    fs.unlinkSync(`public/img/${req.user.profilePicture}`) // remove temp image
-    // create chat img 100x100
+
+    const imgBuffer = Buffer.from(imageBase64Data, 'base64')
+    const img = await jimp.readAsync(imgBuffer)
+    await img.quality(60).writeAsync(`public/${imageUrl}`)
+    
     const chatImageName = `${imageNamePrefix}-chat.png`
-    const infoChat = await sharp(`public/img/${imageNamePrefix}.png`)
-                .resize(100).toFile(`public/img/${chatImageName}`) // resize & save
+    await img.resize(100, 100).quality(60).writeAsync(`public/img/${chatImageName}`)
 
     await db('users').update({profilePicture: imageName, chatPicture: chatImageName}).where({id: req.user.id})
     // delete old picture if it exists
