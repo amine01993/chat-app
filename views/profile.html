@@ -19,8 +19,8 @@
     <div class="card-panel profile-container">
         <div class="row">
             <div class="col s12">
-                {% if user.profilePicture != null and user.profilePicture != '' %}
-                    <img src="img/{{ user.profilePicture }}" alt="Profile Image" class="circle responsive-img profile-img">
+                {% if user.profilePicture != null %}
+                    <img src="{{ user.profilePicture }}" alt="Profile Image" class="circle responsive-img profile-img">
                 {% else %}
                     <img src="default-img/{{ 'default-female.png' if user.sex == 'female' else 'default.png' }}" alt="Profile Image" class="circle responsive-img profile-img">
                 {% endif %}
