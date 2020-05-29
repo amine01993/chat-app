@@ -1,12 +1,12 @@
-require('./helpers/config')
+require('./config/load_params')
 
 const express = require('express')
 const app = express()
-const fs = require('fs')
 const http = require('http').createServer(app)
 const nunjucks = require('nunjucks')
 const io = require('socket.io')(http)
 const SocketIOFile = require('socket.io-file')
+const fs = require('fs')
 const util = require('util')
 const compression = require('compression')
 const uuidv4 = require('uuid/v4')
@@ -19,16 +19,15 @@ const LocalStrategy = require('passport-local').Strategy
 const path = require('path')
 const {
     body,
-    check,
     validationResult
 } = require('express-validator')
 const knex = require('knex')
 const bcrypt = require('bcrypt')
 const saltRounds = 10
+const cloudinary = require('./helpers/cloudinary')
 const sleep = require('./helpers/sleep')
 const random = require('./helpers/random')
 const auth = require('./helpers/auth')
-const jimp = require('./helpers/jimp-sync')
 
 let db = knex({
     client: 'pg',
@@ -207,8 +206,7 @@ app.post('/register', [
         password: bcrypt.hashSync(password, saltRounds),
         firstName,
         lastName,
-        profilePicture: null,
-        chatPicture: null,
+        picture: null,
         sex
     })
 
@@ -218,7 +216,8 @@ app.post('/register', [
 })
 
 app.get('/profile', auth.isAuthorized, (req, res) => {
-    res.render('profile.html', { user: req.user });
+    const user = {...req.user, ...{profilePicture: cloudinary.picture(req.user.picture)}}
+    res.render('profile.html', { user });
 })
 
 app.post('/profileName', auth.isAuthorized, async (req, res) => {
@@ -229,35 +228,25 @@ app.post('/profileName', auth.isAuthorized, async (req, res) => {
 
 app.post('/profileImage', auth.isAuthorized, async (req, res) => {
     const {image, name, type} = req.body
-    const imageBase64Data = image.replace(new RegExp(`^data:${type};base64,`), '');
+    // const imageBase64Data = image.replace(new RegExp(`^data:${type};base64,`), '');
+    const result = await cloudinary.upload(image)
 
-    const imageNamePrefix = uuidv4()
-    const imageName = `${imageNamePrefix}.png`
-    const imageUrl = `img/${imageName}`
-
-    const imgBuffer = Buffer.from(imageBase64Data, 'base64')
-    const img = await jimp.readAsync(imgBuffer)
-    await img.quality(60).writeAsync(`public/${imageUrl}`)
-    
-    const chatImageName = `${imageNamePrefix}-chat.png`
-    await img.resize(100, 100).quality(60).writeAsync(`public/img/${chatImageName}`)
-
-    await db('users').update({profilePicture: imageName, chatPicture: chatImageName}).where({id: req.user.id})
+    await db('users').update({picture: result.public_id}).where({id: req.user.id})
     // delete old picture if it exists
-    if(req.user.profilePicture != null && req.user.profilePicture != '' && fs.existsSync(`public/img/${req.user.profilePicture}`)) {
-        fs.unlinkSync(`public/img/${req.user.profilePicture}`)
+    if(req.user.picture != null && req.user.picture != '') {
+        await cloudinary.destroy(req.user.picture)
     }
-    if(req.user.chatPicture != null && req.user.chatPicture != '' && fs.existsSync(`public/img/${req.user.chatPicture}`)) {
-        fs.unlinkSync(`public/img/${req.user.chatPicture}`)
-    }
-    res.json({imageUrl, success: true})
+    res.json({
+        imageUrl: cloudinary.picture(result.public_id), 
+        success: true
+    })
 })
 
 io.on('connection', async (socket) => {
     socket.user_id = socket.handshake.session.passport.user.id
-
+    const uploadDir = 'public/attachments'
     const uploader = new SocketIOFile(socket, {
-        uploadDir: 'public/attachments',
+        uploadDir,
         accepts: [],
         // 5 MB. default is undefined(no limit)
         maxFileSize: 5 * 1024 * 1024,
@@ -283,16 +272,21 @@ io.on('connection', async (socket) => {
 	uploader.on('complete', async (fileInfo) => {
 		console.log('Upload Complete.')
         console.log(fileInfo)
+
+        const result = await cloudinary.upload(`${uploadDir}/${fileInfo.name}`)
+        fs.unlinkSync(`${uploadDir}/${fileInfo.name}`)
+
         const msgFileId = (await db('message_files').insert({
-            fileName: fileInfo.name,
+            fileName: result.public_id,
             originalFileName: fileInfo.originalFileName,
             type: fileInfo.mime
         }).returning('id'))[0]
 
         socket.emit('uploadComplete', {
             id: msgFileId,
-            imageUrl: `attachments/${fileInfo.name}`,
-            fileName: fileInfo.name,
+            url: cloudinary.url(result.public_id, fileInfo.mime, true),
+            fileName: result.public_id,
+            name: fileInfo.name,
             originalFileName: fileInfo.originalFileName,
             type: fileInfo.mime
         })
@@ -304,7 +298,7 @@ io.on('connection', async (socket) => {
 		console.log('Aborted: ', fileInfo)
 	})
 
-    const currentUser = await db.select('id AS user_id', 'username', 'chatPicture', 'sex')
+    const currentUser = await db.select('id AS user_id', 'username', 'picture', 'sex')
         .from('users').where('id', '=', socket.user_id).first()
     const channels = await getChannels(currentUser)
 
@@ -344,6 +338,10 @@ io.on('connection', async (socket) => {
                 message_id: message[0].id
             })
             .returning(['fileName', 'type', 'originalFileName'])
+
+            files.forEach(file => {
+                file.url = cloudinary.url(file.fileName, file.type)
+            })
         }
 
         // insert metadatas
@@ -356,7 +354,7 @@ io.on('connection', async (socket) => {
             })
         })
 
-        const currentUser = await db.select('chatPicture', 'sex')
+        const currentUser = await db.select('picture', 'sex')
             .from('users').where('id', '=', socket.user_id).first()
 
         io.in(data.channel_uuid).emit('messageListener', {
@@ -364,7 +362,7 @@ io.on('connection', async (socket) => {
                 msg_id: message[0].id,
                 msg: data.value,
                 user_id: socket.user_id,
-                chatPicture: currentUser.chatPicture,
+                chatPicture: cloudinary.chatPicture(currentUser.picture),
                 sex: currentUser.sex,
                 created_at: message[0].created_at,
                 files
@@ -374,6 +372,7 @@ io.on('connection', async (socket) => {
 
     socket.on('deleteAttachment', async ({id}) => {
         const name  = (await db('message_files').where('id', id).del().returning('fileName'))[0]
+        await cloudinary.destroy(name)
         socket.emit('deletedAttachment', {id, name})
     })
 
@@ -412,7 +411,7 @@ io.on('connection', async (socket) => {
         if (channelExist) {
             messages = await db.select(
                 'm.id AS msg_id', 'm.body AS msg', 'u.id AS user_id', 
-                'u.chatPicture', 'u.sex', 'm.created_at', 'mm.read_at'
+                'u.picture', 'u.sex', 'm.created_at', 'mm.read_at'
                 )
                 .select(db.raw(
                     `COALESCE(json_agg(
@@ -425,8 +424,15 @@ io.on('connection', async (socket) => {
                 .leftJoin('message_files AS mf', 'mf.message_id', 'm.id')
                 .where('m.channel_uuid', '=', data.channel_uuid)
                 .andWhere('mm.participant_id', '=', socket.handshake.session.passport.user.id)
-                .groupByRaw('m.id, m.body, u.id, u."chatPicture", u.sex, m.created_at, mm.read_at')
+                .groupByRaw('m.id, m.body, u.id, u.picture, u.sex, m.created_at, mm.read_at')
                 .orderBy('m.created_at')
+                
+            messages.forEach(msg => {
+                msg.chatPicture = cloudinary.chatPicture(msg.picture)
+                msg.files.forEach(file => {
+                    file.url = cloudinary.url(file.fileName, file.type)
+                })
+            })
         }
 
         if (!channelExist) {
@@ -581,7 +587,7 @@ async function getChannels(current_user) {
         FROM (
             SELECT cu.channel_uuid,
                 json_agg(json_build_object(
-                    'user_id', cu.user_id, 'username', u.username, 'chatPicture', u."chatPicture", 'sex', u.sex,
+                    'user_id', cu.user_id, 'username', u.username, 'picture', u.picture, 'sex', u.sex,
                     'lastConnection', u."lastConnection"
                 ) ORDER BY u."lastConnection" DESC NULLS LAST) users 
             FROM channel_user AS cu
@@ -618,13 +624,16 @@ async function getChannels(current_user) {
         `
     )
 
-    const users = await db.select('id', 'username', 'chatPicture', 'sex').from('users')
+    const users = await db.select('id', 'username', 'picture', 'sex').from('users')
 
     const channels = []
 
     // insert defined channels
     for (let i = 0; i < definedChannels.rows.length; i++) {
         const definedChannel = definedChannels.rows[i]
+        definedChannel.users.forEach(user => {
+            user.chatPicture = cloudinary.chatPicture(user.picture)
+        })
         channels.push({
             channel_uuid: definedChannel.channel_uuid,
             body: definedChannel.body,
@@ -652,7 +661,7 @@ async function getChannels(current_user) {
                     users: [{
                         user_id: user.id,
                         username: user.username,
-                        chatPicture: user.chatPicture,
+                        chatPicture: cloudinary.chatPicture(user.picture),
                         sex: user.sex,
                     }],
                     unread_count: 0
@@ -669,12 +678,12 @@ async function getChannels(current_user) {
                     users: [{
                         user_id: user.id,
                         username: user.username,
-                        chatPicture: user.chatPicture,
+                        chatPicture: cloudinary.chatPicture(user.picture),
                         sex: user.sex,
                     }, {
                         user_id: current_user.user_id,
                         username: current_user.username,
-                        chatPicture: current_user.chatPicture,
+                        chatPicture: cloudinary.chatPicture(current_user.picture),
                         sex: current_user.sex,
                     }],
                     unread_count: 0

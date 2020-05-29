@@ -104,13 +104,13 @@
                 if(file) {
                     if(/^image/i.test(file.type)) {
                         const imgElem = `<div class='message'>
-                            <img class="download-image" src="${'attachments/' + file.fileName}" alt="${file.originalFileName}">
+                            <img class="download-image" src="${file.url}" alt="${file.originalFileName}">
                         </div>`
                         fileList += imgElem
                     }
                     else {
                         const fileElem = `<div class='message'>
-                            <a href="${'attachments/' + file.fileName}" class="download-file" target="_blank">
+                            <a href="${file.url}" class="download-file" target="_blank">
                                 ${file.originalFileName}
                             </a>
                         </div>`
@@ -146,13 +146,13 @@
         </li>`
     }
 
-    const renderAttachmentImagePreview = ({id, imageUrl, originalFileName}) => {
+    const renderAttachmentImagePreview = ({id, url, originalFileName}) => {
         return `<li class="message-attachment-item img-attachment" data-id="${id}">
             <div class="message-attachment-preview">
                 <a href="javascript:;" class="close-preview">
                     <i class="material-icons">close</i>
                 </a>
-                <img src="${imageUrl}" alt="${originalFileName}">
+                <img src="${url}" alt="${originalFileName}">
             </div>
         </li>`
     }
@@ -185,8 +185,8 @@
     })[0]
 
     function getChatPicture(chatPicture, gender) {
-        return chatPicture != null && chatPicture != '' 
-            ? `img/${chatPicture}` 
+        return chatPicture != null
+            ? chatPicture
             : `default-img/${gender == 'female' ? 'default-female-icon.png' : 'default-icon.png'}`
     }
 
@@ -349,11 +349,7 @@
                 console.log('true')
                 const uploadIds = uploader.upload(uploadFileInput, {
                     data: { /* Arbitrary data... */ }
-                })
-                // setTimeout(function() {
-                //     uploader.abort(uploadIds[0]);
-                //     console.log(uploader.getUploadInfo());
-                // }, 1000);            
+                })         
             }
         })
 
@@ -573,19 +569,21 @@
         updateAddGroup(acUsers)
     })
 
-    socket.on('uploadComplete', ({id, imageUrl, originalFileName, fileName, type}) => {
+    socket.on('uploadComplete', ({id, url, originalFileName, name, fileName, type}) => {
         // show preview (images, other files)
         let attachmentPreview
         if(/^image/i.test(type)) {
-            attachmentPreview = parse(renderAttachmentImagePreview({id, imageUrl, originalFileName}))
+            attachmentPreview = parse(renderAttachmentImagePreview({id, url, originalFileName}))
         }
         else {
             attachmentPreview = parse(renderAttachmentFilePreview({id, originalFileName}))
         }
 
         // replace progress by preview
-        attachmentFiles.replaceChild(attachmentPreview, uploads[fileName].elem)
-        uploads[fileName] = attachmentPreview
+        attachmentFiles.replaceChild(attachmentPreview, uploads[name].elem)
+        uploads[name] = attachmentPreview
+        uploads[fileName] = uploads[name]
+        delete uploads[name]
         resizeChatLayout()
 
         // set remove file event
